@@ -2,7 +2,7 @@
 
 Native iPad Pro M4 port investigation, built locally from a supplied macOS `Disco.app`.
 
-Current implementation: binary inspection, a searchable native method map, serialized scene/asset recovery, and a touch harness tested on a real 13-inch M4 iPad. Amplify page inspection and a Unity static-geometry diagnostic are implemented; the original ARM64 IL2CPP module also passes a CPU invocation check on stock M4. Gameplay integration is pending.
+Current implementation: binary inspection, a searchable native method map, serialized scene/asset recovery, and a touch harness tested on a real 13-inch M4 iPad. Amplify page inspection and a Unity static-geometry diagnostic are implemented; the original ARM64 IL2CPP module also passes a CPU invocation check on stock M4. The original game startup code now executes with Unity’s iOS engine on the M4; a loading frame has been captured. Playable gameplay is pending.
 
 ## Required now
 
@@ -50,6 +50,6 @@ Device setup is in [docs/IPAD.md](docs/IPAD.md). Tool formats and limits are in 
 
 Unity setup and diagnostic build requirements are in [docs/UNITY.md](docs/UNITY.md). The inspection, UIKit, and native CPU probe targets do not require Unity. Native probe results and limits are in [docs/NATIVE.md](docs/NATIVE.md).
 
-Next implementation: resolve virtual texture placement, channels, and shaders, then establish the gameplay-to-iOS runtime boundary. Scene values and method addresses do not provide executable game logic.
+Original-runtime startup commands and verified device results are in [docs/NATIVE.md](docs/NATIVE.md). Next: virtual textures, loading memory use, original rendering and touch gameplay.
 
 Only original tooling and host code belong in this repository. Game assets, recovered game code, method databases, and signing material remain local. The MIT license applies to this repository's original code.

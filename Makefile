@@ -4,7 +4,7 @@ SCENE_PYTHON ?= .venv/bin/python
 XCODE_PROJECT := apps/ipad/DiscoPort.xcodeproj
 SWIFT_OPTIONS := --scratch-path artifacts/build/swift --cache-path .cache/swift --config-path .cache/swift-config --security-path .cache/swift-security
 
-.PHONY: inspect inspect-vtc recover-vtc audit scenes recover-scene setup-unity stage-unity export-unity-ios build-unity-ipad deploy-unity-ipad prepare-runtime-probe deploy-runtime-probe test test-python test-input build-ipad build-simulator deploy-ipad setup-scenes
+.PHONY: inspect inspect-vtc recover-vtc audit scenes recover-scene setup-unity stage-unity export-unity-ios build-unity-ipad deploy-unity-ipad prepare-runtime-probe deploy-runtime-probe prepare-engine-probe retag-startup-bundles retag-addressable-bundles prepare-native-plugins build-engine-ipad deploy-engine-probe test test-python test-input build-ipad build-simulator deploy-ipad setup-scenes
 
 inspect:
 	$(PYTHON) tools/inspect_game.py --bundle "$(BUNDLE)"
@@ -48,6 +48,24 @@ prepare-runtime-probe:
 
 deploy-runtime-probe:
 	$(PYTHON) tools/deploy_ipad.py --runtime
+
+prepare-engine-probe:
+	$(PYTHON) tools/prepare_engine_probe.py
+
+retag-startup-bundles:
+	$(SCENE_PYTHON) tools/retag_startup_bundles.py
+
+retag-addressable-bundles:
+	$(SCENE_PYTHON) tools/retag_startup_bundles.py --addressables
+
+prepare-native-plugins:
+	$(PYTHON) tools/prepare_native_plugins.py
+
+build-engine-ipad:
+	xcodebuild -project artifacts/build/native-engine-ios/Unity-iPhone.xcodeproj -scheme Unity-iPhone -configuration Debug -destination 'generic/platform=iOS' -derivedDataPath artifacts/build/native-engine-device CODE_SIGNING_ALLOWED=NO SDK_STAT_CACHE_ENABLE=NO build
+
+deploy-engine-probe:
+	$(PYTHON) tools/deploy_ipad.py --engine
 
 test: test-python test-input
 
