@@ -25,3 +25,5 @@ Run `make deploy-ipad`. It verifies the physical 13-inch M4 model, builds with a
 Verified on 6 October 2026: paid team signing, network installation and launch on a real 13-inch M4 with iPadOS 27.0. The user confirmed the requested harness gesture/layout checks work. Game execution and performance remain untested.
 
 Record real M4 device results separately from simulator results. Keep team IDs, device IDs, provisioning profiles, and signing certificates out of commits.
+
+The separate Unity geometry diagnostic uses `make deploy-unity-ipad`; requirements and lifecycle integration are in [UNITY.md](UNITY.md). This does not replace the verified input harness. Unity startup reached 103 active mesh renderers on the M4, and the user confirmed visible geometry with incorrect appearance. The focused diagnostic selects 82 instances. Original visual fidelity and Unity touch navigation remain pending.

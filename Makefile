@@ -4,10 +4,16 @@ SCENE_PYTHON ?= .venv/bin/python
 XCODE_PROJECT := apps/ipad/DiscoPort.xcodeproj
 SWIFT_OPTIONS := --scratch-path artifacts/build/swift --cache-path .cache/swift --config-path .cache/swift-config --security-path .cache/swift-security
 
-.PHONY: inspect audit scenes recover-scene test test-python test-input build-ipad build-simulator deploy-ipad setup-scenes
+.PHONY: inspect inspect-vtc recover-vtc audit scenes recover-scene setup-unity stage-unity export-unity-ios build-unity-ipad deploy-unity-ipad test test-python test-input build-ipad build-simulator deploy-ipad setup-scenes
 
 inspect:
 	$(PYTHON) tools/inspect_game.py --bundle "$(BUNDLE)"
+
+inspect-vtc:
+	$(PYTHON) tools/inspect_vtc.py --bundle "$(BUNDLE)"
+
+recover-vtc:
+	$(SCENE_PYTHON) tools/inspect_vtc.py --bundle "$(BUNDLE)" --sample-pages 4 --planes 0 2 3 4
 
 audit:
 	$(PYTHON) tools/audit_bundle.py "$(BUNDLE)" artifacts/inspection/bundle-audit.json
@@ -21,6 +27,21 @@ scenes:
 
 recover-scene:
 	$(SCENE_PYTHON) tools/recover_scene.py --bundle "$(BUNDLE)"
+
+stage-unity:
+	$(PYTHON) tools/stage_unity.py
+
+setup-unity:
+	$(PYTHON) tools/setup_unity.py
+
+export-unity-ios:
+	$(PYTHON) tools/build_unity.py
+
+build-unity-ipad:
+	xcodebuild -project artifacts/build/unity-ios/Unity-iPhone.xcodeproj -scheme Unity-iPhone -configuration Debug -destination 'generic/platform=iOS' -derivedDataPath artifacts/build/unity-device CODE_SIGNING_ALLOWED=NO SDK_STAT_CACHE_ENABLE=NO build
+
+deploy-unity-ipad:
+	$(PYTHON) tools/deploy_ipad.py --unity
 
 test: test-python test-input
 
