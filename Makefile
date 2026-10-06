@@ -4,7 +4,7 @@ SCENE_PYTHON ?= .venv/bin/python
 XCODE_PROJECT := apps/ipad/DiscoPort.xcodeproj
 SWIFT_OPTIONS := --scratch-path artifacts/build/swift --cache-path .cache/swift --config-path .cache/swift-config --security-path .cache/swift-security
 
-.PHONY: inspect inspect-vtc recover-vtc audit scenes recover-scene setup-unity stage-unity export-unity-ios build-unity-ipad deploy-unity-ipad test test-python test-input build-ipad build-simulator deploy-ipad setup-scenes
+.PHONY: inspect inspect-vtc recover-vtc audit scenes recover-scene setup-unity stage-unity export-unity-ios build-unity-ipad deploy-unity-ipad prepare-runtime-probe deploy-runtime-probe test test-python test-input build-ipad build-simulator deploy-ipad setup-scenes
 
 inspect:
 	$(PYTHON) tools/inspect_game.py --bundle "$(BUNDLE)"
@@ -42,6 +42,12 @@ build-unity-ipad:
 
 deploy-unity-ipad:
 	$(PYTHON) tools/deploy_ipad.py --unity
+
+prepare-runtime-probe:
+	$(PYTHON) tools/prepare_runtime_probe.py --bundle "$(BUNDLE)"
+
+deploy-runtime-probe:
+	$(PYTHON) tools/deploy_ipad.py --runtime
 
 test: test-python test-input
 

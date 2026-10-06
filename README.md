@@ -2,7 +2,7 @@
 
 Native iPad Pro M4 port investigation, built locally from a supplied macOS `Disco.app`.
 
-Current implementation: binary inspection, a searchable native method map, serialized scene/asset recovery, and a touch harness tested on a real 13-inch M4 iPad. Amplify page inspection and a Unity static-geometry diagnostic are implemented; recovered gameplay is pending.
+Current implementation: binary inspection, a searchable native method map, serialized scene/asset recovery, and a touch harness tested on a real 13-inch M4 iPad. Amplify page inspection and a Unity static-geometry diagnostic are implemented; the original ARM64 IL2CPP module also passes a CPU invocation check on stock M4. Gameplay integration is pending.
 
 ## Required now
 
@@ -27,6 +27,8 @@ make build-unity-ipad
 make test
 make build-ipad
 make deploy-ipad    # Requires artifacts/local-ipad.json; see docs/IPAD.md
+make prepare-runtime-probe
+make deploy-runtime-probe
 ```
 
 `BUNDLE=/absolute/path/Disco.app` overrides the reference path for inspection commands. Generated data, dependencies, and builds stay ignored by Git.
@@ -46,7 +48,7 @@ make deploy-ipad    # Requires artifacts/local-ipad.json; see docs/IPAD.md
 
 Device setup is in [docs/IPAD.md](docs/IPAD.md). Tool formats and limits are in [docs/TOOLING.md](docs/TOOLING.md).
 
-Unity setup and diagnostic build requirements are in [docs/UNITY.md](docs/UNITY.md). The inspection and UIKit targets do not require Unity.
+Unity setup and diagnostic build requirements are in [docs/UNITY.md](docs/UNITY.md). The inspection, UIKit, and native CPU probe targets do not require Unity. Native probe results and limits are in [docs/NATIVE.md](docs/NATIVE.md).
 
 Next implementation: resolve virtual texture placement, channels, and shaders, then establish the gameplay-to-iOS runtime boundary. Scene values and method addresses do not provide executable game logic.
 

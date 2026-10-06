@@ -27,3 +27,5 @@ Verified on 6 October 2026: paid team signing, network installation and launch o
 Record real M4 device results separately from simulator results. Keep team IDs, device IDs, provisioning profiles, and signing certificates out of commits.
 
 The separate Unity geometry diagnostic uses `make deploy-unity-ipad`; requirements and lifecycle integration are in [UNITY.md](UNITY.md). This does not replace the verified input harness. Unity startup reached 103 active mesh renderers on the M4, and the user confirmed visible geometry with incorrect appearance. The focused diagnostic selects 82 instances. Original visual fidelity and Unity touch navigation remain pending.
+
+`make deploy-runtime-probe` builds the optional CPU diagnostic as a separate app. It loads only the derived, development-signed module on the physical iPad; see [NATIVE.md](NATIVE.md) for the verified arithmetic invocation and integration limits.

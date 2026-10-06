@@ -13,11 +13,12 @@
 | Asset recovery | 67 meshes (18,327 vertices, 19,395 triangles), 58 materials, 57 standard textures exported locally |
 | References | 3,846 component references inspected; 16 Unity built-in runtime dependencies marked; zero unresolved errors within the documented scope |
 | iPad host | UIKit touch harness verified; separate Unity geometry diagnostic installed on the M4 |
-| Verification | 27 Python tests and 4 Swift tests pass; real-reference inspection, VTC sample recovery, UIKit unsigned build, Unity export and ARM64 build succeed |
+| Verification | 30 Python tests and 4 Swift tests pass; real-reference inspection, VTC sample recovery, UIKit unsigned build, Unity export and ARM64 build succeed |
 | Physical M4 | Paid development signing, installation and launch over local network succeeded on a real 13-inch M4, iPadOS 27.0; user confirmed harness checks work |
 | Amplify textures | 40 VTC2 containers and 311,680 page records validated; 640 Unity Crunch plane samples decoded; placement and plane 1 pending |
 | Unity toolchain | Exact 2020.3.12f1 editor/iOS module unpacked locally; existing license works; Xcode 27 export/compile/sign/install succeeds |
 | Unity scene diagnostic | 373 nodes and 67 meshes staged; UIKit lifecycle, shader stripping, and saved inactive groups handled; 82 active mesh instances; post-splash frame retrieved from the real M4 confirms rendering; sampled native transform matches source; original visual fidelity remains pending after user distortion reports |
+| Native ARM64 runtime | Derived module loaded on stock M4; original runtime/metadata initialized; original Vector3.Dot invocation returned 32; executable section hashes unchanged |
 | Simulator | Harness previously launched and layout inspected on the installed 13-inch M5 simulator |
 
-Next: recover original material/shader appearance and verify lifecycle behavior, map Amplify page placement/channels, and establish an executable gameplay recovery strategy. Current scene exports do not include executable methods, original custom shaders, animation, navigation, or audio. The full game is not running on iPad.
+Next: recover original material/shader appearance and verify lifecycle behavior, map Amplify page placement/channels, and connect the original native runtime to Unity iOS before testing game-specific behavior. Current scene exports do not include executable methods, original custom shaders, animation, navigation, or audio. The full game is not running on iPad.
