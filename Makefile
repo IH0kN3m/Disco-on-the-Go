@@ -4,7 +4,7 @@ SCENE_PYTHON ?= .venv/bin/python
 XCODE_PROJECT := apps/ipad/DiscoPort.xcodeproj
 SWIFT_OPTIONS := --scratch-path artifacts/build/swift --cache-path .cache/swift --config-path .cache/swift-config --security-path .cache/swift-security
 
-.PHONY: inspect audit scenes test test-python test-input build-ipad build-simulator setup-scenes
+.PHONY: inspect audit scenes recover-scene test test-python test-input build-ipad build-simulator deploy-ipad setup-scenes
 
 inspect:
 	$(PYTHON) tools/inspect_game.py --bundle "$(BUNDLE)"
@@ -19,6 +19,9 @@ setup-scenes:
 scenes:
 	$(SCENE_PYTHON) tools/inspect_scenes.py --bundle "$(BUNDLE)"
 
+recover-scene:
+	$(SCENE_PYTHON) tools/recover_scene.py --bundle "$(BUNDLE)"
+
 test: test-python test-input
 
 test-python:
@@ -32,3 +35,6 @@ build-ipad:
 
 build-simulator:
 	xcodebuild -project $(XCODE_PROJECT) -scheme DiscoPort -configuration Debug -destination 'generic/platform=iOS Simulator' -derivedDataPath artifacts/build/simulator CODE_SIGNING_ALLOWED=NO build
+
+deploy-ipad:
+	$(PYTHON) tools/deploy_ipad.py

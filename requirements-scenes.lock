@@ -11,3 +11,4 @@ pyfmodex==0.7.2
 texture2ddecoder==1.0.6
 tpk_ar==0.2.4
 UnityPy==1.25.4
+TypeTreeGeneratorAPI==0.0.10

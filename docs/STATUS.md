@@ -9,8 +9,12 @@
 | Unmapped direct pointers | 5,496 methods per architecture; generics and abstract methods need further analysis |
 | Scene inventory | 36 built scenes indexed |
 | Initial recovery target | Whirling floor 2, build index 6; 1,617 objects, 998 built-in components exported |
+| Custom scene data | All 414 MonoBehaviour components decoded across 58 classes; 375 via AssetsTools, 39 via AssetStudio |
+| Asset recovery | 67 meshes (18,327 vertices, 19,395 triangles), 58 materials, 57 standard textures exported locally |
+| References | 3,846 component references inspected; 16 Unity built-in runtime dependencies marked; zero unresolved errors within the documented scope |
 | iPad host | UIKit touch harness; Unity and recovered gameplay pending |
-| Verification | 9 Python tests and 4 Swift tests pass; device and simulator builds succeed |
-| Launch check | Harness launched and layout inspected on the installed 13 inch iPad Pro M5 simulator; physical M4 execution pending |
+| Verification | 16 Python tests and 4 Swift tests pass; inspection, scene recovery, device and simulator builds succeed |
+| Physical M4 | Paid development signing, installation and launch over local network succeeded on a real 13-inch M4, iPadOS 27.0; user confirmed harness checks work |
+| Simulator | Harness previously launched and layout inspected on the installed 13-inch M5 simulator |
 
-Next: resolve shared assets and custom script layouts for scene 6, then test texture recovery and gameplay integration.
+Next: decode Amplify virtual texture pages, test Unity 2020.3.12f1 iOS runtime compatibility with current Xcode, and establish an executable gameplay recovery strategy. Unity editor installation is still pending. Current scene exports do not include executable methods, custom shaders, animation, navigation, or audio. The full game is not running on iPad.
