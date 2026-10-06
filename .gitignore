@@ -1,0 +1,36 @@
+# Supplied game and all extracted or generated proprietary data.
+/reference/*
+!/reference/README.md
+/artifacts/
+/analysis/*.json
+
+# Local tools, package caches, and build products.
+/.tooling/
+/.cache/
+/.venv/
+/.build/
+/.swiftpm/
+/DerivedData/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.DS_Store
+*.xcuserstate
+xcuserdata/
+*.ipa
+*.dSYM/
+*.mobileprovision
+*.p12
+*.cer
+
+# Future recovered Unity project.
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+[Bb]uilds/
+.env
+.env.*
+!.env.example
