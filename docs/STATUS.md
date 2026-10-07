@@ -17,7 +17,7 @@
 
 The prepared build was development-signed, installed over the existing M4 app and launched with the same bundle identifier. The rebuilt asset manifest required a refresh. All six save files and the settings file were backed up locally; no app deletion or container reset was performed.
 
-The device log confirms Apple M4 native BC support, completed Unity application loading, the full 2752×2064 landscape profile and approximately 2.46 GiB startup footprint at the 30-second sample. Periodic diagnostic scans/readbacks/captures are disabled. Save loading, input and a transition on this new build still await user confirmation; a full playthrough remains unverified.
+The device log confirms Apple M4 native BC support, completed Unity application loading, the full 2752×2064 landscape profile and approximately 2.46 GiB startup footprint at the 30-second sample. Periodic diagnostic scans/readbacks/captures are disabled. The user confirmed that loading a save, movement, pinch zoom, the gamepad toggle and a scene transition work on this build. A full playthrough remains unverified.
 
 Deployment initially rejected CoreDevice's structured OS-version object. The parser now reads its `stringValue`, with regression coverage for valid and malformed objects. Real device validation and deployment subsequently passed. The current suite passes 71 Python tests and 4 Swift tests.
 
