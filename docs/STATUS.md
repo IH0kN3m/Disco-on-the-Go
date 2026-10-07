@@ -13,7 +13,13 @@
 - Deployment accepts physical iPads on iPadOS 17+; full-screen tablet viewport policy covers 1.25–1.6 aspect ratios. Native BC is required at runtime. Other models, lower memory budgets and these display changes are not device-verified.
 - Updated README/build/device/compatibility/release instructions and source-only CI are prepared. No iPad installation, GitHub upload or publication was performed. Applicable game, Unity and plugin rights still need review; no legal clearance is claimed.
 
-The installed M4 app remains the previously verified gameplay build. A device smoke test of the new unsigned build and a longer playthrough remain outstanding.
+## Prepared build installed — 7 October 2026
+
+The prepared build was development-signed, installed over the existing M4 app and launched with the same bundle identifier. The rebuilt asset manifest required a refresh. All six save files and the settings file were backed up locally; no app deletion or container reset was performed.
+
+The device log confirms Apple M4 native BC support, completed Unity application loading, the full 2752×2064 landscape profile and approximately 2.46 GiB startup footprint at the 30-second sample. Periodic diagnostic scans/readbacks/captures are disabled. Save loading, input and a transition on this new build still await user confirmation; a full playthrough remains unverified.
+
+Deployment initially rejected CoreDevice's structured OS-version object. The parser now reads its `stringValue`, with regression coverage for valid and malformed objects. Real device validation and deployment subsequently passed. The current suite passes 71 Python tests and 4 Swift tests.
 
 ## Prior device evidence
 

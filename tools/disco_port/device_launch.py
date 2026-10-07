@@ -46,6 +46,8 @@ def validate_ipad(result):
         raise FormatError('Deployment target must be a physical iPad')
     software = properties.get('software', info.get('deviceProperties', {}))
     version = software.get('osVersionNumber', '')
+    if isinstance(version, dict):
+        version = version.get('stringValue', '')
     if not isinstance(version, str) or not re.fullmatch(r'[0-9]+(?:\.[0-9]+){0,2}', version) or int(version.split('.')[0]) < 17:
         raise FormatError('Deployment requires iPadOS 17 or newer with a reported OS version')
     return model

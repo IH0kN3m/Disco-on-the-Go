@@ -45,3 +45,13 @@ class DeviceLaunchTests(unittest.TestCase):
                                          ('iPad16,6', 'physical', 'garbage'), (None, 'physical', '27')]:
             with self.assertRaises(FormatError):
                 validate_ipad({'properties': {'hardware': {'productType': model, 'reality': reality}, 'software': {'osVersionNumber': version}}})
+
+    def test_structured_coredevice_os_version(self):
+        from disco_port.device_launch import validate_ipad
+        result = {'properties': {'hardware': {'productType': 'iPad16,6', 'reality': 'physical'},
+                                 'software': {'osVersionNumber': {'components': [27, 0, 0, 0, 0],
+                                                                 'originalComponentsCount': 2, 'stringValue': '27.0'}}}}
+        self.assertEqual(validate_ipad(result), 'iPad16,6')
+        for version in ({}, {'stringValue': None}, {'stringValue': '16.6'}, {'stringValue': '27garbage'}):
+            result['properties']['software']['osVersionNumber'] = version
+            with self.assertRaises(FormatError): validate_ipad(result)
