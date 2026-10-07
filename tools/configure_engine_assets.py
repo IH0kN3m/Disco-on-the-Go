@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parent.parent
 PROJECT = ROOT / 'artifacts/build/native-engine-ios'
 
 
-def configure(increased_memory=False, debug_memory=None, amplify_cpu=False, lazy_scenes=None, landscape=None):
+def configure(increased_memory=False, debug_memory=None, amplify_cpu=False, lazy_scenes=None, landscape=None, diagnostics=False):
     staging_path = PROJECT / 'native-engine-staging.json'
     staging = json.loads(staging_path.read_text())
     if staging.get('original_game_data') is not True or len(staging.get('retagged_serialized_files', [])) != 76:
@@ -73,6 +73,8 @@ def configure(increased_memory=False, debug_memory=None, amplify_cpu=False, lazy
     info_path = PROJECT / 'Info.plist'
     info = plistlib.loads(info_path.read_bytes())
     info['DiscoPersistentAssets'] = True
+    info['DiscoDiagnostics'] = bool(diagnostics)
+    staging['diagnostics'] = bool(diagnostics)
     info['DiscoAssetManifestSHA256'] = digest
     if lazy_scenes is not None:
         info['DiscoLazyScenes'] = lazy_scenes
@@ -109,8 +111,9 @@ if __name__ == '__main__':
                            help='Also request the development-only memory policy')
     debugging.add_argument('--no-debug-memory', dest='debug_memory', action='store_false',
                            help='Use increased memory and extended addressing without the debugging memory policy')
+    parser.add_argument('--diagnostics', action='store_true', help='Enable periodic allocator/scene scans and automatic screenshots; off for normal play')
     args = parser.parse_args()
     try:
-        configure(args.increased_memory, args.debug_memory, args.amplify_cpu, args.lazy_scenes, args.landscape)
+        configure(args.increased_memory, args.debug_memory, args.amplify_cpu, args.lazy_scenes, args.landscape, args.diagnostics)
     except (OSError, ValueError, KeyError) as error:
         raise SystemExit(f'Persistent asset configuration failed: {error}')

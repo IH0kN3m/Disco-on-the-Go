@@ -19,6 +19,12 @@
 extern "C" bool Unity_il2cppNoExceptions() { return false; }
 extern "C" void DiscoNativeEngineStage(const char* stage);
 
+static bool DiagnosticsEnabled()
+{
+    static bool enabled = [[NSBundle.mainBundle objectForInfoDictionaryKey:@"DiscoDiagnostics"] boolValue];
+    return enabled;
+}
+
 // Region residency is diagnostic accounting, not an additive footprint estimate:
 // shared mappings may be counted more than once. No Unity calls on this thread.
 static void LogMemoryRegions()
@@ -189,7 +195,16 @@ static void CheckMetalBC()
         if (!device) { DiscoNativeEngineStage("Metal capability probe has no device"); return; }
         if (@available(iOS 16.4, *)) {
             printf("NATIVE METAL: device=%s BC=%d\n", device.name.UTF8String, device.supportsBCTextureCompression);
-            if (!device.supportsBCTextureCompression) return;
+            if (!device.supportsBCTextureCompression) {
+                DiscoNativeEngineStage("unsupported GPU: this build requires native BC texture compression");
+                abort(); // Stop before loading game textures into an unbounded RGBA fallback.
+            }
+            if (!DiagnosticsEnabled()) {
+#if !__has_feature(objc_arc)
+                [device release];
+#endif
+                return;
+            }
             MTLPixelFormat formats[] = { MTLPixelFormatBC1_RGBA, MTLPixelFormatBC3_RGBA,
                 MTLPixelFormatBC7_RGBAUnorm, MTLPixelFormatBC6H_RGBUfloat };
             for (MTLPixelFormat format : formats) {
@@ -291,12 +306,13 @@ extern "C" void DiscoNativeEngineBegin()
     DiscoNativeEngineStage("before UnityInitRuntime");
     static dispatch_source_t memoryTimer;
     memoryTimer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_global_queue(QOS_CLASS_UTILITY, 0));
-    dispatch_source_set_timer(memoryTimer, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC), 2 * NSEC_PER_SEC, NSEC_PER_SEC / 10);
+    dispatch_source_set_timer(memoryTimer, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC), (DiagnosticsEnabled() ? 2 : 30) * NSEC_PER_SEC, NSEC_PER_SEC / 10);
     dispatch_source_set_event_handler(memoryTimer, ^{
         static unsigned samples = 0;
         LogMemory("sample");
-        if (++samples % 5 == 0) LogMemoryRegions();
-        if (samples == 600) dispatch_source_cancel(memoryTimer);
+        ++samples;
+        if (DiagnosticsEnabled() && samples % 5 == 0) LogMemoryRegions();
+        if (DiagnosticsEnabled() && samples == 600) dispatch_source_cancel(memoryTimer);
     });
     dispatch_resume(memoryTimer);
 }
@@ -528,6 +544,12 @@ extern "C" void DiscoNativeEngineLoaded()
     dispatch_source_set_timer(displayTimer, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC), NSEC_PER_SEC, NSEC_PER_SEC / 10);
     dispatch_source_set_event_handler(displayTimer, ^{ DiscoGameDisplay::Refresh(); });
     dispatch_resume(displayTimer);
+    // Normal play retains one startup check and lightweight memory-warning logs.
+    // Allocator/scene walks and GPU screenshot readbacks are opt-in diagnostics.
+    if (!DiagnosticsEnabled()) {
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 2 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{ CheckEngine(); });
+        return;
+    }
     static dispatch_source_t allocationTimer;
     allocationTimer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_main_queue());
     dispatch_source_set_timer(allocationTimer, dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC),

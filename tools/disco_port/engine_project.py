@@ -87,3 +87,29 @@ def select_original_provider(project):
             paths = [paths]
         settings['FRAMEWORK_SEARCH_PATHS'] = paths + ['$(SRCROOT)/Frameworks']
     return len(removed)
+
+
+def set_app_bundle_identifier(project, identifier):
+    """Change only the owning app target; never a framework/shared configuration."""
+    if not isinstance(identifier, str) or len(identifier) > 200 or not re.fullmatch(r'[A-Za-z][A-Za-z0-9-]*(?:\.[A-Za-z][A-Za-z0-9-]*)+', identifier):
+        raise FormatError('Expected a reverse-DNS app bundle identifier owned by your team')
+    objects = project['objects']
+    targets = [(key, value) for key, value in objects.items() if value.get('isa') == 'PBXNativeTarget']
+    apps = [(key, value) for key, value in targets if value.get('name') == 'Unity-iPhone']
+    if len(apps) != 1:
+        raise FormatError('Expected exactly one owning Unity app target')
+    app_id, app = apps[0]
+    configurations = objects[app['buildConfigurationList']]['buildConfigurations']
+    if not configurations or len(set(configurations)) != len(configurations):
+        raise FormatError('Invalid app configuration ownership')
+    # Include project-level configuration lists as well as other targets.
+    for key, owner in objects.items():
+        if key != app_id and 'buildConfigurationList' in owner:
+            if set(configurations) & set(objects[owner['buildConfigurationList']]['buildConfigurations']):
+                raise FormatError('App settings are shared with another owner')
+    for config in configurations:
+        item = objects[config]
+        if item.get('isa') != 'XCBuildConfiguration' or not isinstance(item.get('buildSettings'), dict):
+            raise FormatError('Unsupported app build configuration')
+    for config in configurations:
+        objects[config]['buildSettings']['PRODUCT_BUNDLE_IDENTIFIER'] = identifier

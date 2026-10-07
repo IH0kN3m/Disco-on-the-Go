@@ -66,3 +66,25 @@ class EngineProjectTests(unittest.TestCase):
             binding_registrations(['__Z999Register_TestAv'])
         with self.assertRaises(FormatError):
             binding_registrations(['_irrelevant'])
+
+
+class AppIdentifierTests(unittest.TestCase):
+    def test_app_target_only_and_repeatable(self):
+        from disco_port.engine_project import set_app_bundle_identifier
+        project = project_fixture()
+        engine = copy.deepcopy(project['objects']['engine_debug'])
+        for _ in range(2): set_app_bundle_identifier(project, 'org.example.disco')
+        self.assertEqual(project['objects']['debug']['buildSettings']['PRODUCT_BUNDLE_IDENTIFIER'], 'org.example.disco')
+        self.assertEqual(project['objects']['engine_debug'], engine)
+
+    def test_rejects_invalid_and_shared_configuration_without_mutating(self):
+        from disco_port.engine_project import set_app_bundle_identifier
+        for value in ('', 'single', 'com..bad', 'com/escape', 'com.bad;argument', None):
+            project = project_fixture(); before = copy.deepcopy(project)
+            with self.assertRaises(FormatError): set_app_bundle_identifier(project, value)
+            self.assertEqual(project, before)
+        project = project_fixture()
+        project['objects']['engine_configs']['buildConfigurations'] = ['debug']
+        before = copy.deepcopy(project)
+        with self.assertRaises(FormatError): set_app_bundle_identifier(project, 'org.example.disco')
+        self.assertEqual(project, before)

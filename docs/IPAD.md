@@ -1,31 +1,38 @@
-# iPad build
+# Device setup
 
-1. Open `apps/ipad/DiscoPort.xcodeproj` in Xcode.
-2. Select the `DiscoPort` target. Under Signing and Capabilities, choose your development team and a unique bundle identifier.
-3. Connect the iPad, enable Developer Mode, select it as the run destination, and run the `DiscoPort` scheme.
+Build the game first using [BUILD.md](BUILD.md). Device installation is separate and may require Apple network access for provisioning.
 
-The app currently tests tap, hold, two-finger pan, pinch, reset, and interruption cancellation. The canvas is a diagnostic surface; it contains no game assets or gameplay.
-
-```sh
-make build-ipad        # Unsigned ARM64 device build; not installable as-is
-make build-simulator   # Simulator build
-make test-input        # Shared input tests on macOS
-```
-
-Device output: `artifacts/build/ipad/Build/Products/Debug-iphoneos/DiscoPort.app`.
-
-For repeatable physical M4 deployment, put your authorized team and paired device identifier in `artifacts/local-ipad.json`:
+1. Pair the iPad with Xcode, enable Developer Mode, trust the Mac and leave the device unlocked for launch. USB or an already paired local-network connection can be used.
+2. Sign in to your authorized Apple developer team in Xcode. The team needs Certificates, Identifiers & Profiles access, a registered device and the memory capabilities requested by this project. The verified setup uses a paid account.
+3. Create the ignored `artifacts/local-ipad.json`:
 
 ```json
-{"team_id": "YOURTEAMID", "device_identifier": "YOUR-PAIRED-DEVICE-ID"}
+{"team_id": "YOURTEAMID", "device_identifier": "YOUR-PAIRED-DEVICE-ID", "bundle_id": "org.yourname.disco"}
 ```
 
-Run `make deploy-ipad`. It verifies the physical 13-inch M4 model, builds with automatic development signing, installs, and launches. The team needs Certificates, Identifiers, & Profiles access in Xcode. Xcode may create a development certificate/profile. The iPad must already be registered for that team; use Xcode's device destination if registration is needed. Keep the iPad unlocked for launch. Logs and device/signing configuration stay under `artifacts/`; signed products are under `artifacts/build/signed-ipad/`.
+Choose a unique `bundle_id` available to your team. Omitting it preserves the historical `org.discoport.engineprobe` identifier for existing installs; new builders should supply their own. The setting changes only the app target, and the built identifier is verified before selecting its asset container.
 
-Verified on 6 October 2026: paid team signing, network installation and launch on a real 13-inch M4 with iPadOS 27.0. The user confirmed the requested harness gesture/layout checks work. Game execution and performance remain untested.
+Use your own team ID and the paired identifier shown by `xcrun devicectl list devices`. Keep this configuration, command output, certificates, provisioning profiles and logs private.
 
-Record real M4 device results separately from simulator results. Keep team IDs, device IDs, provisioning profiles, and signing certificates out of commits.
+```sh
+python3 tools/deploy_ipad.py --engine --mip-limit 0 --lazy-scenes
+```
 
-The separate Unity geometry diagnostic uses `make deploy-unity-ipad`; requirements and lifecycle integration are in [UNITY.md](UNITY.md). This does not replace the verified input harness. Unity startup reached 103 active mesh renderers on the M4, and the user confirmed visible geometry with incorrect appearance. The focused diagnostic selects 82 instances. Original visual fidelity and Unity touch navigation remain pending.
+The command validates a physical iPad on iPadOS 17+, signs with your team, installs, seeds the checked persistent asset directory and launches. It may create or update development provisioning. Native BC GPU support and actual memory headroom still determine whether the device can run the game; see [COMPATIBILITY.md](COMPATIBILITY.md).
 
-`make deploy-runtime-probe` builds the optional CPU diagnostic as a separate app. It loads only the derived, development-signed module on the physical iPad; see [NATIVE.md](NATIVE.md) for the verified arithmetic invocation and integration limits.
+The first asset transfer is about 9.6 GB. Later deployments skip it when the readiness manifest matches. Do not change your established bundle identifier or delete the app during a playthrough without backing up its Documents directory/saves. Development-signed apps are subject to profile expiry; plan renewal before travel. Increased-memory entitlements do not guarantee access to all installed RAM.
+
+The working tree's unsigned output is not automatically installed. Device logs go to `Documents/native-engine.log`; retrieve only into ignored `artifacts/`. A returned process ID proves launch submission, not successful gameplay. Confirm loading a save, movement/input, UI alignment, a scene transition and save/reload on the actual device after runtime changes.
+
+## Separate diagnostics
+
+These targets contain no complete game and are not part of `make port`:
+
+| Command | Purpose |
+| --- | --- |
+| `make build-ipad` / `make deploy-ipad` | Original UIKit touch harness |
+| `make build-simulator` | Simulator touch harness |
+| `make deploy-unity-ipad` | Earlier recovered static-geometry diagnostic; see [UNITY.md](UNITY.md) |
+| `make deploy-runtime-probe` | Original-runtime CPU experiment; see [NATIVE.md](NATIVE.md) |
+
+The harness was verified on the physical M4 on 6 October 2026. Original gameplay was subsequently verified on 7 October; it is separate from the distorted early geometry diagnostic.

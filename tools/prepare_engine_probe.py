@@ -10,6 +10,7 @@ import re
 import shutil
 import subprocess
 
+from disco_port.build_inputs import validate_sources
 from disco_port.engine_project import binding_registrations, select_original_provider
 from disco_port.serialized_platform import retag_serialized
 from disco_port.plugin_project import link_game_controller
@@ -18,6 +19,7 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 def prepare(game_data=False, retag=False):
+    validate_sources(ROOT / 'reference/Disco.app')
     if retag and not game_data:
         raise ValueError('Serialized loader retagging requires --game-data')
     version = (ROOT / 'artifacts/recovered-unity/ProjectSettings/ProjectVersion.txt').read_text()

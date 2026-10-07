@@ -33,3 +33,15 @@ class DeviceLaunchTests(unittest.TestCase):
             elif change == 'environment': wrong['launchOptions']['environmentVariables'] = {}
             else: wrong['process']['processIdentifier'] = True
             with self.assertRaises(FormatError): validate_launch(wrong, 2)
+
+    def test_physical_ipads_and_both_coredevice_envelopes(self):
+        from disco_port.device_launch import validate_ipad
+        for model in ('iPad16,6', 'iPad16,3', 'iPad14,8', 'iPad99,1'):
+            hardware = {'productType': model, 'reality': 'physical'}
+            self.assertEqual(validate_ipad({'properties': {'hardware': hardware, 'software': {'osVersionNumber': '27.0'}}}), model)
+            self.assertEqual(validate_ipad({'device': {'hardwareProperties': hardware, 'deviceProperties': {'osVersionNumber': '17.4.1'}}}), model)
+        for model, reality, version in [('iPhone17,1', 'physical', '27.0'), ('iPad16,6', 'simulated', '27.0'),
+                                         ('iPad16,6', 'physical', '16.6'), ('iPad16,6', 'physical', ''),
+                                         ('iPad16,6', 'physical', 'garbage'), (None, 'physical', '27')]:
+            with self.assertRaises(FormatError):
+                validate_ipad({'properties': {'hardware': {'productType': model, 'reality': reality}, 'software': {'osVersionNumber': version}}})

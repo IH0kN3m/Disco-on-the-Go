@@ -1,5 +1,7 @@
 # Disco Elysium native iPad port feasibility
 
+Historical feasibility analysis, written before the playable device build. Current results and constraints are in [STATUS.md](../docs/STATUS.md); use [BUILD.md](../docs/BUILD.md) for reproduction.
+
 Porting the supplied Disco Elysium game to an iPad Pro M4 is plausible as a substantial reverse engineering project. The existing ARM64 code is useful, but it does not make the macOS application compatible with iPadOS. With only the compiled app, the decisive questions are whether its gameplay logic can be reused or recovered, and whether its textures, shaders, and serialized scenes can be rebuilt for an iPad runtime.
 
 The target is the full game running locally with touch controls. The working assumption is a standard iPadOS device using a signed development app. Streaming and a simplified adaptation are outside this target. This assessment is based on static inspection on 6 October 2026; successful iPad execution and performance remain unproven.

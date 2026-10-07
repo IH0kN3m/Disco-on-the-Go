@@ -33,3 +33,19 @@ def validate_launch(result, mip_limit=None, lazy_scenes=False):
     if type(pid) is not int or pid <= 0:
         raise FormatError('Launch returned no valid process identifier')
     return pid
+
+
+def validate_ipad(result):
+    """Accept physical iPads without guessing GPU features from a model name."""
+    import re
+    info = result.get('device', result)
+    properties = info.get('properties', {})
+    hardware = properties.get('hardware', info.get('hardwareProperties', {}))
+    model = hardware.get('productType', '')
+    if not isinstance(model, str) or not re.fullmatch(r'iPad[1-9][0-9]*,[1-9][0-9]*', model) or hardware.get('reality') != 'physical':
+        raise FormatError('Deployment target must be a physical iPad')
+    software = properties.get('software', info.get('deviceProperties', {}))
+    version = software.get('osVersionNumber', '')
+    if not isinstance(version, str) or not re.fullmatch(r'[0-9]+(?:\.[0-9]+){0,2}', version) or int(version.split('.')[0]) < 17:
+        raise FormatError('Deployment requires iPadOS 17 or newer with a reported OS version')
+    return model

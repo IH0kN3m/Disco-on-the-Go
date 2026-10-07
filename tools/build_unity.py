@@ -24,11 +24,12 @@ def build(editor):
     log = ROOT / "artifacts/build/unity-editor.log"
     log.parent.mkdir(parents=True, exist_ok=True)
     environment = os.environ.copy()
+    environment['DISCO_EMPTY_HOST'] = '1' if json.loads((project / "staging.json").read_text()).get('empty_host') is True else '0'
     environment["UNITY_IOS_OUTPUT"] = str(output)
     config = ROOT / "artifacts/local-ipad.json"
     if config.exists():
         environment["UNITY_DEVELOPMENT_TEAM"] = json.loads(config.read_text())["team_id"]
-    print("Exporting the Unity 2020.3.12f1 geometry diagnostic…", flush=True)
+    print("Exporting the Unity 2020.3.12f1 local host…", flush=True)
     with (log.parent / "unity-process.log").open("w") as process_log:
         result = subprocess.run([str(editor), "-batchmode", "-nographics", "-quit", "-projectPath", str(project),
                                  "-buildTarget", "iOS", "-executeMethod", "BuildProbe.ExportIOS", "-logFile", str(log)],

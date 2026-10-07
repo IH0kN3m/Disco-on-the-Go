@@ -2,6 +2,21 @@
 
 7 October 2026
 
+## Offline release preparation — 7 October 2026
+
+- Normal play disables repeated VM scans, main-thread allocator/scene inventories, BC readback experiments and automatic screenshots. Full texture quality, UI scale and frame-rate policy are unchanged. Performance gains have not been measured on device.
+- `make doctor` validates the exact game revision and tools; `make port` runs the complete unsigned pipeline with per-step logs, exclusive workspace ownership and source immutability checks. An empty original Unity export host removes scene recovery/decompilation from the build prerequisites.
+- Fresh-directory reproduction passed all 12 steps using only public source plus the supplied game, installed licensed Unity editor and pinned Python environment. All 2,203 source-bundle entries were unchanged. The new project registers 8,163 bindings and 62 modules and retains all 76 root serialized files. Fresh tool download/license activation was not retested offline.
+- 70 Python tests and 4 Swift tests pass. The unsigned UIKit harness build passes. Source/leak checks found no findings in the working tree or the six existing Git commits. The release procedure reruns the audit after the final commit.
+- The main workspace also completed the full unsigned pipeline, with the same derived asset manifest as the fresh-directory build. The supplied reference remained unchanged in both runs.
+- Deployment can select a team-owned app identifier and verifies app/container ownership; existing installs retain their identifier by default.
+- Deployment accepts physical iPads on iPadOS 17+; full-screen tablet viewport policy covers 1.25–1.6 aspect ratios. Native BC is required at runtime. Other models, lower memory budgets and these display changes are not device-verified.
+- Updated README/build/device/compatibility/release instructions and source-only CI are prepared. No iPad installation, GitHub upload or publication was performed. Applicable game, Unity and plugin rights still need review; no legal clearance is claimed.
+
+The installed M4 app remains the previously verified gameplay build. A device smoke test of the new unsigned build and a longer playthrough remain outstanding.
+
+## Prior device evidence
+
 | Work | Result |
 | --- | --- |
 | Static metadata index | 92 images, 14,861 types, 102,219 methods, 60,329 fields |

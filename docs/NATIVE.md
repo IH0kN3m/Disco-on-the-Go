@@ -1,5 +1,7 @@
 # Native runtime probe
 
+For the current end-to-end build use [BUILD.md](BUILD.md) and `make port`. The commands and results below document the incremental native experiments; they are not additional prerequisites.
+
 The supplied ARM64 GameAssembly exports 232 IL2CPP entry points and imports 334 symbols. The CPU probe derives an iOS framework from that module, preserves its executable sections byte for byte, and uses the original metadata. No reference binary is loaded on the Mac or changed in place.
 
 ```sh

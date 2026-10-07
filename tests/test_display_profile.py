@@ -17,6 +17,12 @@ int main() {
     assert(std::fabs(p.referenceWidth/p.referenceHeight-4.0f/3.0f)<0.00001f);
     assert(std::fabs(p.referenceHeight*(2752/p.referenceWidth)-2064)<0.01f);
     assert(DiscoDisplay::TabletProfile(1376,1032,p));
+    for (auto dimensions : {std::pair<int,int>{2420,1668},{2360,1640},{2266,1488},{2732,2048}}) {
+        assert(DiscoDisplay::TabletProfile(dimensions.first,dimensions.second,p));
+        assert(std::fabs(p.aspect-float(dimensions.first)/dimensions.second)<0.00001f);
+        assert(p.referenceHeight==2048);
+        assert(std::fabs(p.referenceWidth/p.referenceHeight-p.aspect)<0.00001f);
+    }
     for (auto dimensions : {std::pair<int,int>{0,2064},{-1,2064},{2064,2752},{1920,1080},{16385,12288},{2147483647,1}}) {
         assert(!DiscoDisplay::TabletProfile(dimensions.first,dimensions.second,p));
         assert(p.aspect==0 && p.referenceWidth==0 && p.referenceHeight==0);

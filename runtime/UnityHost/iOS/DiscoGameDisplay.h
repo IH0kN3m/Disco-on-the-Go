@@ -43,7 +43,11 @@ static void Refresh() {
     void* args[] = { &fourByThree, &horizontalBars };
     Call(Method(aspect, "UpdateAspectRatio", 2, 0x71ac78), nullptr, args);
     Il2CppClass* fitters = DiscoSceneResidency::Class("Assembly-CSharp.dll", "", "AspectRatioFitterUtility");
-    // Normalize the source's 2372x2048 reference to the actual 4:3 display.
+    // The game's preset installs a fixed 4:3 fitter. Override it for the
+    // actual tablet aspect without changing the existing reference height.
+    void* fitterArgs[] = { &profile.aspect, &horizontalBars };
+    Call(Method(fitters, "SetFitter", 2, 0xe0c268), nullptr, fitterArgs);
+    // Normalize the source's 2372x2048 reference to the actual tablet display.
     // Keep a stable reference height; artwork and glyphs retain their aspect.
     struct Vector { float x, y; } reference = {profile.referenceWidth, profile.referenceHeight};
     static_assert(sizeof(reference) == 8, "Pinned Vector2 layout");
@@ -64,6 +68,6 @@ static void Refresh() {
         }
     }
     previousWidth=width; previousHeight=height; previousCount=count; previousActive=active;
-    printf("NATIVE DISPLAY: game 4:3 profile=%dx%d reference=%.1fx%.1f scene=%d\n", width,height,reference.x,reference.y,active);
+    printf("NATIVE DISPLAY: game tablet profile=%dx%d reference=%.1fx%.1f scene=%d\n", width,height,reference.x,reference.y,active);
 }
 }

@@ -1,0 +1,19 @@
+name: Source checks
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Original tooling and input tests
+        run: make test
+      - name: Source and Git history audit
+        run: make audit-release
+# Game/Unity inputs, device builds, signing and private logs never enter public CI.

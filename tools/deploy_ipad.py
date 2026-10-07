@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Development-sign, install, and launch a diagnostic on a configured M4 iPad."""
+"""Development-sign, install, and launch a diagnostic on a configured iPad."""
 
 import argparse
 import hashlib
@@ -9,8 +9,9 @@ import plistlib
 import re
 import subprocess
 
+from disco_port.engine_project import set_app_bundle_identifier
 from disco_port.device_assets import data_manifest, manifest_bytes
-from disco_port.device_launch import launch_arguments, validate_launch
+from disco_port.device_launch import launch_arguments, validate_launch, validate_ipad
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -44,12 +45,9 @@ def deploy(config_path, unity=False, runtime=False, engine=False, mip_limit=None
     run(output, ["xcrun", "devicectl", "device", "info", "details", "--device", device,
          "--timeout", "45", "--json-output", str(output / "device.json")], "device.log")
     result = json.loads((output / "device.json").read_text())["result"]
-    # New CoreDevice JSON uses properties; support the previous details envelope.
-    info = result.get("device", result)
-    properties = info.get("properties", {})
-    hardware = properties.get("hardware", info.get("hardwareProperties", {}))
-    if hardware.get("productType") not in ("iPad16,5", "iPad16,6") or hardware.get("reality") != "physical":
-        raise ValueError("Deployment target must be a physical 13-inch iPad Pro M4")
+    model = validate_ipad(result)
+    if model not in ('iPad16,5', 'iPad16,6'):
+        print('Untested iPad model: native BC texture support and sufficient process memory are required.', flush=True)
     project = "artifacts/build/native-engine-ios/Unity-iPhone.xcodeproj" if engine else "artifacts/build/unity-ios/Unity-iPhone.xcodeproj" if unity else "apps/ipad/DiscoPort.xcodeproj"
     derived = "artifacts/build/signed-engine" if engine else "artifacts/build/native-runtime" if runtime else "artifacts/build/signed-unity" if unity else "artifacts/build/signed-ipad"
     persistent = False
@@ -66,6 +64,13 @@ def deploy(config_path, unity=False, runtime=False, engine=False, mip_limit=None
     if not (ROOT / project).exists():
         raise ValueError("Missing engine project; run tools/prepare_engine_probe.py first" if engine else
                          "Missing Xcode project; export the Unity diagnostic first" if unity else "Missing harness project")
+    bundle = "org.discoport.engineprobe" if engine else "org.discoport.runtimeprobe" if runtime else "org.discoport.unityprobe" if unity else "org.discoport.lab"
+    if engine:
+        bundle = config.get('bundle_id', bundle)
+        project_file = ROOT / project / 'project.pbxproj'
+        settings = plistlib.loads(project_file.read_bytes())
+        set_app_bundle_identifier(settings, bundle)
+        project_file.write_bytes(plistlib.dumps(settings))
     extra = []
     if runtime:
         prepared = ROOT / "artifacts/runtime-probe"
@@ -79,6 +84,8 @@ def deploy(config_path, unity=False, runtime=False, engine=False, mip_limit=None
          derived, "DEVELOPMENT_TEAM=" + team, "CODE_SIGN_STYLE=Automatic", "SDK_STAT_CACHE_ENABLE=NO",
          "-allowProvisioningUpdates", *extra, "build"], "build.log")
     app = ROOT / derived / "Build/Products/Debug-iphoneos" / ("DiscoGeometryLab.app" if unity or engine else "DiscoPort.app")
+    if plistlib.loads((app / 'Info.plist').read_bytes()).get('CFBundleIdentifier') != bundle:
+        raise ValueError('Built app identifier differs from the selected deployment container')
     if persistent and (app / 'Data').exists():
         raise ValueError('Persistent build unexpectedly contains bundled Data')
     run(output, ["xcrun", "devicectl", "device", "install", "app", "--device", device, str(app),
@@ -89,27 +96,26 @@ def deploy(config_path, unity=False, runtime=False, engine=False, mip_limit=None
         with (output / 'asset-check.log').open('w') as log:
             result = subprocess.run(['xcrun', 'devicectl', 'device', 'copy', 'from', '--device', device,
                 '--source', 'Documents/DiscoPortAssets/ready.sha256', '--destination', str(remote),
-                '--domain-type', 'appDataContainer', '--domain-identifier', 'org.discoport.engineprobe', '--timeout', '45'],
+                '--domain-type', 'appDataContainer', '--domain-identifier', bundle, '--timeout', '45'],
                 stdout=log, stderr=subprocess.STDOUT)
         expected = (asset_root / 'ready.sha256').read_text()
         if result.returncode or not remote.exists() or remote.read_text() != expected:
             run(output, ['xcrun', 'devicectl', 'device', 'copy', 'to', '--device', device,
                 '--source', str(asset_root / 'Data'), '--destination', 'Documents/DiscoPortAssets/Data',
-                '--domain-type', 'appDataContainer', '--domain-identifier', 'org.discoport.engineprobe', '--timeout', '900'], 'asset-upload.log')
+                '--domain-type', 'appDataContainer', '--domain-identifier', bundle, '--timeout', '900'], 'asset-upload.log')
             for filename in ('device-assets.json', 'ready.sha256'):
                 run(output, ['xcrun', 'devicectl', 'device', 'copy', 'to', '--device', device,
                     '--source', str(asset_root / filename), '--destination', 'Documents/DiscoPortAssets/' + filename,
-                    '--domain-type', 'appDataContainer', '--domain-identifier', 'org.discoport.engineprobe', '--timeout', '45'], filename + '.log')
+                    '--domain-type', 'appDataContainer', '--domain-identifier', bundle, '--timeout', '45'], filename + '.log')
         else:
             print('Persistent asset manifest matches; upload skipped.', flush=True)
-    bundle = "org.discoport.engineprobe" if engine else "org.discoport.runtimeprobe" if runtime else "org.discoport.unityprobe" if unity else "org.discoport.lab"
     run(output, launch_arguments(device, bundle, output / 'launch.json', mip_limit, lazy_scenes), 'launch.log')
     result = json.loads((output / "launch.json").read_text())["result"]
     validate_launch(result, mip_limit, lazy_scenes)
-    print("Original-runtime engine experiment installed and launched on the M4 iPad. Retrieve its log to establish results." if engine else
-          "Native CPU probe installed and launched on the M4 iPad. Retrieve its runtime log to establish results." if runtime else
-          "Unity geometry diagnostic installed and launched on the M4 iPad. Rendering still needs runtime verification."
-          if unity else "Harness installed and launched on the M4 iPad. Gesture testing still requires physical interaction.")
+    print("Original-runtime engine experiment installed and launched on the configured iPad. Retrieve its log to establish results." if engine else
+          "Native CPU probe installed and launched on the configured iPad. Retrieve its runtime log to establish results." if runtime else
+          "Unity geometry diagnostic installed and launched on the configured iPad. Rendering still needs runtime verification."
+          if unity else "Harness installed and launched on the configured iPad. Gesture testing still requires physical interaction.")
 
 
 def main():

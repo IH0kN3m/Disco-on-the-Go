@@ -1,55 +1,66 @@
 # Disco iPad port
 
-Native iPad Pro M4 port investigation, built locally from a supplied macOS `Disco.app`.
+Build a native iPad version locally from your own macOS `Disco.app`. This unofficial project distributes original build tools and compatibility adapters, **not the game, Unity, extracted code, assets, or an IPA**.
 
-The original ARM64 game runs with Unity 2020.3.12f1’s iOS engine on a stock 13-inch M4 iPad. Opening dialogue, textured gameplay, tap movement, pinch zoom, virtual-controller input, saving, area transitions, and full 4:3 landscape framing have been verified on the device. Complete-game stability and bounded memory across long sessions remain pending. Separate touch and geometry diagnostics are also retained.
+The previous build runs on a stock **13-inch iPad Pro M4, 16 GB, iPadOS 27**. Opening dialogue, textured gameplay, tap movement, pinch zoom, the virtual controller, saving, scene transitions and full-screen 4:3 landscape have been verified. A complete playthrough and long-session stability have not. See [compatibility](docs/COMPATIBILITY.md) for other iPads and current limits.
 
-## Required now
+## Requirements
 
-- Mac with Xcode and its command-line tools selected.
-- Python 3.11 or newer. Tested with Python 3.14.7 and Xcode 27.0.
-- Original Unity 2020.3.12f1 build at `reference/Disco.app`.
-- For device execution: Apple developer account, signing team, and connected iPad with Developer Mode enabled.
+- Mac with **Xcode 27.x**, selected with `xcode-select`, and Python **3.11+**. Tested: Xcode 27.0, Python 3.14.7 on Apple silicon.
+- **Unity 2020.3.12f1** with iOS Build Support, a valid applicable Unity license, and Rosetta for this Intel editor. The setup command downloads approximately 4.2 GB from Unity; it does not activate a license.
+- Your own compatible macOS game at **`reference/Disco.app`**. The build checks exact native-module and metadata fingerprints before proceeding; a different revision is rejected. See [input requirements](docs/BUILD.md#game-input).
+- At least **60 GiB free** on the Mac after installing tools. Device deployment also needs approximately 10 GB of asset storage plus saves and installation headroom.
+- For installation: an Apple development signing team with the required memory capabilities, a paired physical iPad, Developer Mode, and an unlocked device. The tested setup uses a paid account.
 
-## Commands
+## Build
+
+Run from the repository root. First place your game at `reference/Disco.app`, then:
 
 ```sh
-make inspect
-python3 tools/methods.py SaveGame --image Assembly-CSharp.dll
-make setup-scenes
-make scenes
-make recover-scene
-make recover-vtc
-make setup-unity
-make stage-unity
-make export-unity-ios
-make build-unity-ipad
-make test
-make build-ipad
-make deploy-ipad    # Requires artifacts/local-ipad.json; see docs/IPAD.md
-make prepare-runtime-probe
-make deploy-runtime-probe
+make setup-scenes     # Install pinned local Python dependencies
+make setup-unity      # Download and verify the pinned Unity editor + iOS module
+make doctor           # Validate input revision and installed build tools
+make port             # Complete unsigned build; no device access or downloads
 ```
 
-`BUNDLE=/absolute/path/Disco.app` overrides the reference path for inspection commands. Generated data, dependencies, and builds stay ignored by Git.
+The build exports an empty original Unity host, derives the runtime/plugins from your copy, preserves game object/resource bodies while retagging platform headers, enables native BC textures, and builds the iOS app. Scene recovery, Ghidra and decompilation are **not** prerequisites. The original app is read only; a before/after fingerprint checks that it was not changed.
 
-| Path | Purpose |
+Outputs and per-step logs stay under ignored `artifacts/`. An unsigned build is not installable. [Build and troubleshooting](docs/BUILD.md) covers licensing, paths, rebuilding and the distinction between reproducible steps and byte-identical output.
+
+## Install and play
+
+Create `artifacts/local-ipad.json` with your own values:
+
+```json
+{"team_id": "YOURTEAMID", "device_identifier": "YOUR-PAIRED-DEVICE-ID", "bundle_id": "org.yourname.disco"}
+```
+
+Choose a unique `bundle_id` available to your team. Existing installations should retain their current identifier to keep their saves. Then, with the iPad paired and unlocked:
+
+```sh
+python3 tools/deploy_ipad.py --engine --mip-limit 0 --lazy-scenes
+```
+
+This signs, installs, uploads the local assets, and launches the app. Initial transfer is large; later deployments skip it when the manifest matches. Keep the bundle identifier consistent to preserve the app's saves, and back up saves before replacing or deleting the app. [Device setup](docs/IPAD.md) has details.
+
+Tap to move/interact; pinch to zoom. The small gamepad icon shows or hides dual sticks, a D-pad, ABXY, shoulders, triggers and Menu. Hiding the pad restores direct touch. The existing game UI scale and frame-rate policy remain unchanged.
+
+## Development and distribution
+
+```sh
+make test             # Synthetic parser/policy tests and Swift input tests; no game needed
+make audit-release    # Public-source allowlist, leak checks and all reachable Git history
+make inspect          # Optional real-reference metadata integration check
+```
+
+| Directory | Contents |
 | --- | --- |
-| `tools/disco_port/` | Mach-O, IL2CPP metadata, and method indexing |
-| `tools/inspect_scenes.py` | Scene inventory and selected built-in component export |
-| `tools/recover_scene.py` | Script values, owned asset references, meshes, materials, and standard textures |
-| `tools/inspect_vtc.py` | Bounded virtual texture container validation and page samples |
-| `runtime/UnityHost/` | Original iOS runtime adapters, input controls and geometry diagnostic |
-| `runtime/InputCore/` | Touch actions and viewport coordinate conversion |
-| `apps/ipad/` | Buildable UIKit input harness |
-| `tests/`, `runtime/InputCoreTests/` | Parser and input tests using synthetic fixtures |
-| `reference/` | User-supplied game, never committed |
-| `artifacts/` | Local indexes, scene exports, logs, and builds |
+| `tools/`, `tools/disco_port/` | Build entry points and inspection/validation modules |
+| `runtime/UnityHost/` | Original iOS, display, memory and controller adapters |
+| `runtime/InputCore/`, `apps/ipad/` | Separate touch-input diagnostic, not the game |
+| `tests/` | Synthetic fixtures; no game data |
+| `reference/`, `artifacts/` | Private local inputs and outputs, excluded from Git |
 
-Device setup is in [docs/IPAD.md](docs/IPAD.md). Tool formats and limits are in [docs/TOOLING.md](docs/TOOLING.md).
+[Release policy](docs/RELEASE.md) defines what can be published and the remaining rights review. MIT covers this repository's original work only; it grants no rights to the game, Unity, or supplied plugins. A source-only audit does not establish legal clearance. This project is not affiliated with or endorsed by their owners.
 
-Unity setup and diagnostic build requirements are in [docs/UNITY.md](docs/UNITY.md). The inspection, UIKit, and native CPU probe targets do not require Unity. Native probe results and limits are in [docs/NATIVE.md](docs/NATIVE.md).
-
-Original-game build commands and verified device results are in [docs/NATIVE.md](docs/NATIVE.md). Memory findings and native BC integration are in [docs/MEMORY.md](docs/MEMORY.md). Next: state-safe memory bounds and longer-play verification.
-
-Only original tooling and host code belong in this repository. Game assets, recovered game code, method databases, and signing material remain local. The MIT license applies to this repository's original code.
+Detailed engineering evidence: [status](docs/STATUS.md), [native integration](docs/NATIVE.md), [memory](docs/MEMORY.md). Earlier [geometry diagnostics](docs/UNITY.md) are retained for investigation and are separate from the playable build.

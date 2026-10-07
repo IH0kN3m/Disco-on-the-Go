@@ -108,3 +108,17 @@ build-simulator:
 
 deploy-ipad:
 	$(PYTHON) tools/deploy_ipad.py
+
+.PHONY: doctor port audit-release stage-engine-host
+
+doctor:
+	$(PYTHON) tools/port.py doctor
+
+port:
+	$(PYTHON) tools/port.py build
+
+stage-engine-host:
+	$(PYTHON) tools/stage_engine_host.py
+
+audit-release:
+	$(PYTHON) tools/audit_release.py --history

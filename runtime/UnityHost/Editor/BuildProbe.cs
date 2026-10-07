@@ -11,16 +11,19 @@ public static class BuildProbe
     {
         if (Application.unityVersion != "2020.3.12f1") throw new InvalidOperationException("Expected Unity 2020.3.12f1");
         var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-        var probe = new GameObject("Recovered geometry diagnostic").AddComponent<SceneProbe>();
-        var shader = Shader.Find("Legacy Shaders/Diffuse");
-        if (shader == null) throw new InvalidOperationException("Missing built-in diagnostic shader");
-        const string materialPath = "Assets/Resources/DiagnosticMaterial.mat";
-        AssetDatabase.DeleteAsset(materialPath);
-        var material = new Material(shader) { color = new Color(0.65f, 0.68f, 0.73f) };
-        if (!material.HasProperty("_Color")) throw new InvalidOperationException("Diagnostic shader must support color tint");
-        AssetDatabase.CreateAsset(material, materialPath);
-        probe.diagnosticMaterial = material;
-        probe.labelFont = Resources.GetBuiltinResource<Font>("Arial.ttf");
+        if (Environment.GetEnvironmentVariable("DISCO_EMPTY_HOST") != "1")
+        {
+            var probe = new GameObject("Recovered geometry diagnostic").AddComponent<SceneProbe>();
+            var shader = Shader.Find("Legacy Shaders/Diffuse");
+            if (shader == null) throw new InvalidOperationException("Missing built-in diagnostic shader");
+            const string materialPath = "Assets/Resources/DiagnosticMaterial.mat";
+            AssetDatabase.DeleteAsset(materialPath);
+            var material = new Material(shader) { color = new Color(0.65f, 0.68f, 0.73f) };
+            if (!material.HasProperty("_Color")) throw new InvalidOperationException("Diagnostic shader must support color tint");
+            AssetDatabase.CreateAsset(material, materialPath);
+            probe.diagnosticMaterial = material;
+            probe.labelFont = Resources.GetBuiltinResource<Font>("Arial.ttf");
+        }
         EditorSceneManager.SaveScene(scene, "Assets/Diagnostic.unity");
         PlayerSettings.productName = "Disco Geometry Lab";
         PlayerSettings.companyName = "Disco Port";
