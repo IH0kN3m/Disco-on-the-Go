@@ -7,7 +7,7 @@ import os
 import plistlib
 from pathlib import Path
 import subprocess
-from disco_port.unity_stage import modernize_ios_project, modernize_ios_trampoline
+from disco_port.unity_stage import modernize_ios_project, modernize_ios_trampoline, modernize_orientation_transition
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -40,6 +40,8 @@ def build(editor):
     trampoline = output / "Classes/UnityAppController.mm"
     adapter = (ROOT / "runtime/UnityHost/iOS/SceneLifecycle.mm").read_text()
     trampoline.write_text(modernize_ios_trampoline(trampoline.read_text(), adapter))
+    handling = output / 'Classes/UI/UnityAppController+ViewHandling.mm'
+    handling.write_text(modernize_orientation_transition(handling.read_text()))
     plist = output / "Info.plist"
     info = plistlib.loads(plist.read_bytes())
     info["UIApplicationSceneManifest"] = {

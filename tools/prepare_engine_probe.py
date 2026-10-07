@@ -12,6 +12,7 @@ import subprocess
 
 from disco_port.engine_project import binding_registrations, select_original_provider
 from disco_port.serialized_platform import retag_serialized
+from disco_port.plugin_project import link_game_controller
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -35,6 +36,7 @@ def prepare(game_data=False, retag=False):
                          capture_output=True, check=True).stdout
     project = json.loads(raw)
     removed = select_original_provider(project)
+    link_game_controller(project)
     nm = subprocess.run(['xcrun', 'nm', '-g', str(source / 'Libraries/libiPhone-lib.a')], capture_output=True, check=True)
     symbols = {line.split()[-1] for line in nm.stdout.decode().splitlines()
                if len(line.split()) == 3 and line.split()[1] in ('T', 'W')}
@@ -102,6 +104,12 @@ def prepare(game_data=False, retag=False):
     shutil.copyfile(ROOT / 'reference/Disco.app/Contents/Resources/Data/ScriptingAssemblies.json',
                     output / 'Data/ScriptingAssemblies.json')
     shutil.copyfile(ROOT / 'runtime/UnityHost/iOS/NativeEngineProbe.mm', output / 'Libraries/NativeEngineProbe.mm')
+    shutil.copyfile(ROOT / 'runtime/UnityHost/iOS/DiscoSceneResidency.h', output / 'Libraries/DiscoSceneResidency.h')
+    shutil.copyfile(ROOT / 'runtime/UnityHost/SceneLoadPolicy.h', output / 'Libraries/SceneLoadPolicy.h')
+    shutil.copyfile(ROOT / 'runtime/UnityHost/iOS/DiscoGameDisplay.h', output / 'Libraries/DiscoGameDisplay.h')
+    shutil.copyfile(ROOT / 'runtime/UnityHost/DisplayProfile.h', output / 'Libraries/DisplayProfile.h')
+    shutil.copyfile(ROOT / 'runtime/UnityHost/iOS/DiscoTouchControls.h', output / 'Libraries/DiscoTouchControls.h')
+    shutil.copyfile(ROOT / 'runtime/UnityHost/TouchControlPolicy.h', output / 'Libraries/TouchControlPolicy.h')
     lines = [f'extern "C" void binding_{i}() asm("{symbol}");' for i, symbol in enumerate(registrations)]
     lines.append('void RegisterAllStrippedInternalCalls() {')
     lines.extend(f'    binding_{i}();' for i in range(len(registrations)))
@@ -131,6 +139,9 @@ def prepare(game_data=False, retag=False):
             raise ValueError('Unsupported Unity application startup layout')
     if text.count('UnityUpdateMuteState(') != 3:
         raise ValueError('Unsupported iOS mute callback layout')
+    if text.count('    UnityLowMemory();') != 1:
+        raise ValueError('Unsupported iOS memory warning callback layout')
+    text = 'extern "C" void DiscoNativeEngineMemoryWarning();\n' + text.replace('    UnityLowMemory();', '    DiscoNativeEngineMemoryWarning();\n    UnityLowMemory();')
     text = text.replace('UnityUpdateMuteState(', 'DiscoUpdateMuteState(')
     text = 'extern "C" void DiscoNativeEngineStage(const char*);\nextern "C" void DiscoNativeEngineLoaded();\nextern "C" void DiscoUpdateMuteState(int);\n' + text
     text = text.replace('    UnityInitApplicationNoGraphics(UnityDataBundleDir());',

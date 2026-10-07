@@ -12,7 +12,7 @@ make scenes
 make recover-scene
 ```
 
-The metadata reader targets the v27 table layout in Unity 2020.3.12f1. It validates table bounds, record strides, type ownership, method tokens, and field/parameter ranges. Type indexes are raw; nested declaring-type resolution, generic instantiations, field offsets, and method bodies remain unresolved.
+The metadata reader targets the v27 table layout in Unity 2020.3.12f1. It validates table bounds, record strides, type ownership, method tokens, and field/parameter ranges. Type indexes are raw. Native analysis resolves nested owners through `byval_type_index`; generic instantiations and general executable-source recovery remain unresolved. Selected scene-coroutine field offsets are checked against runtime metadata before hooking.
 
 The native mapper identifies CodeGenModule prefixes by assembly name, maximum method token, and executable pointer validation. It supports the actual `il2cpp` code section. Addresses are unslid virtual addresses. `slice_offset` is relative to the thin architecture slice; `file_offset` is relative to the original universal binary. A zero pointer is recorded as `no_direct_pointer`, without inferring a method's behavior.
 
@@ -35,3 +35,7 @@ Actual integration: 40 containers, 311,680 page records, 640 decoded plane sampl
 Format references: [Unity Crunch](https://github.com/Unity-Technologies/crunch), [Crunch headers](https://github.com/BinomialLLC/crunch/blob/master/inc/crn_decomp.h). VTC2 table layout is derived from static inspection of the supplied build, not a published vendor specification.
 
 Unity staging validates source hashes, transform parent cycles, local component ownership, mesh indices, and normal counts/finite values. The build command rejects outdated staged host code. Diagnostic viewing policy and actual device results are in [UNITY.md](UNITY.md).
+
+`make setup-ghidra` installs the pinned official Ghidra release under artifacts. Headless analysis also requires Java and its macOS ARM64 decompiler; build the bundled native decompiler source if the release does not provide that executable. `make analyze-native-memory` statically selects startup/scene ownership methods from the indexed reference. `tools/analyze_native_memory.py --type NAME --address 0xADDRESS --output artifacts/NAME` extends the selection. `make analyze-native-plugin` inspects the supplied Amplify CPU exports. Neither command loads the inspected binaries on the Mac.
+
+Native analysis validates source revision, executable ownership and exact `LC_FUNCTION_STARTS` boundaries. Ghidra exports pseudocode, ARM64 instruction listings and call references to ignored artifacts. Actual results: 127 startup/helper functions, an expanded 303-function streaming/state pass, 207 display functions, 256 input/HUD functions and 24 Amplify exports. Pseudocode still contains unresolved types, indirect calls and some exception/tail-flow artifacts; check the instruction listing before drawing ABI or ownership conclusions. These outputs are not recovered source or executable replacement methods.

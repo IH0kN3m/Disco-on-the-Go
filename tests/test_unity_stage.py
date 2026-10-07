@@ -1,10 +1,18 @@
 import unittest
 
 from disco_port.binary import FormatError
-from disco_port.unity_stage import flatten_normals, index_owned_components, modernize_ios_project, modernize_ios_trampoline, validate_parents
+from disco_port.unity_stage import flatten_normals, index_owned_components, modernize_ios_project, modernize_ios_trampoline, modernize_orientation_transition, validate_parents
 
 
 class HierarchyTests(unittest.TestCase):
+    def test_delegate_controller_is_updated_before_uikit_setter(self):
+        original = '    _rootController = _window.rootViewController = vc;'
+        changed = modernize_orientation_transition(original)
+        self.assertLess(changed.index('_rootController = vc;'), changed.index('_window.rootViewController = vc;'))
+        self.assertEqual(modernize_orientation_transition(changed), changed)
+        for text in ('', original + original, changed + original):
+            with self.assertRaises(ValueError): modernize_orientation_transition(text)
+
     def test_local_component_ownership_and_duplicates(self):
         def component(file_id, owner):
             return {'type': 'MeshFilter', 'data': {'m_GameObject': {'m_FileID': file_id, 'm_PathID': owner}}}
