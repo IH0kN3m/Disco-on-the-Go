@@ -14,11 +14,12 @@ def git(*args):
 
 
 def audit(history=False):
-    config = ROOT / 'artifacts/local-ipad.json'
-    private = ()
-    if config.exists():
-        value = json.loads(config.read_text())
-        private = tuple(value.get(k, '') for k in ('team_id', 'device_identifier'))
+    private = []
+    for name in ('local-ipad.json', 'local-android.json'):
+        config = ROOT / 'artifacts' / name
+        if config.exists():
+            value = json.loads(config.read_text())
+            private.extend(value[k] for k in ('team_id', 'device_identifier') if isinstance(value.get(k), str))
     findings, checked = [], 0
     for name in git('ls-files', '-z', '--cached', '--others', '--exclude-standard').decode().split('\0'):
         if not name:

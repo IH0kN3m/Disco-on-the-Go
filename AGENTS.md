@@ -12,3 +12,5 @@ Target the complete game running locally on iPads with touch input, retaining th
 - Record actual results and unresolved integration issues in repository documentation. Do not represent metadata signatures as recovered executable methods.
 
 - The public build entry point is `make port`; keep it independent of scene recovery and decompilation. Run `make audit-release` before release commits. Never publish generated products or unreviewed logs.
+
+- Android work targets the Galaxy Tab S10 Ultra initially. Keep its original host in `apps/android/` and `runtime/AndroidHost/`, with generated APKs, local signing, device reports and recovered shaders under `artifacts/android/`. Preserve the working iPad pipeline. Android probes must not be described as recovered gameplay.

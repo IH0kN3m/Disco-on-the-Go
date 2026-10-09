@@ -34,3 +34,11 @@ xcuserdata/
 .env
 .env.*
 !.env.example
+
+# Android packages, local SDK configuration and signing.
+*.apk
+*.aab
+*.jks
+*.keystore
+.gradle/
+local.properties

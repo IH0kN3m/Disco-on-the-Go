@@ -6,7 +6,7 @@ ROOT_FILES = {'.gitattributes', '.gitignore', 'AGENTS.md', 'LICENSE', 'Makefile'
 SUFFIXES = {
     'tools': {'.py', '.java'}, 'runtime': {'.swift', '.cs', '.h', '.mm', '.cpp'},
     'tests': {'.py'}, 'docs': {'.md'}, 'analysis': {'.md'},
-    'apps': {'.swift', '.plist', '.pbxproj', '.xcscheme'}, '.github': {'.yml', '.yaml', '.md'},
+    'apps': {'.swift', '.plist', '.pbxproj', '.xcscheme', '.java', '.xml'}, '.github': {'.yml', '.yaml', '.md'},
 }
 PATTERNS = {
     'private key': re.compile(r'-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----'),

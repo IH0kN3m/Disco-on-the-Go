@@ -4,6 +4,10 @@ Build a native iPad version locally from your own macOS `Disco.app`. This unoffi
 
 The previous build runs on a stock **13-inch iPad Pro M4, 16 GB, iPadOS 27**. Opening dialogue, textured gameplay, tap movement, pinch zoom, the virtual controller, saving, scene transitions and full-screen 4:3 landscape have been verified. A complete playthrough and long-session stability have not. See [compatibility](docs/COMPATIBILITY.md) for other iPads and current limits.
 
+## Android investigation
+
+A separate Android diagnostic APK now runs on the Galaxy Tab S10 Ultra. Original ARM64 arithmetic works, but the full runtime, shaders, texture residency and gameplay still require porting. The tablet lacks the native BC support used on iPad. See [Android status and build steps](docs/ANDROID.md); this is not yet a playable Android release.
+
 ## Requirements
 
 - Mac with **Xcode 27.x**, selected with `xcode-select`, and Python **3.11+**. Tested: Xcode 27.0, Python 3.14.7 on Apple silicon.

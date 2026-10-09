@@ -1,6 +1,14 @@
 # Implementation status
 
-7 October 2026
+9 October 2026
+
+## Android investigation — 9 October 2026
+
+The connected Galaxy Tab S10 Ultra runs the diagnostic APK, not gameplay. It reports ARM64 Android API 36, Mali-G720, approximately 11.26 GiB physical memory and a 2960×1848 display. BC1/3/6H/7 GPU sampling is unavailable; ASTC LDR is supported. Three cases of an isolated, unchanged original ARM64 arithmetic leaf pass in an Android ELF library. Full original-runtime compatibility remains unresolved.
+
+Twelve of thirteen distinct sampled game shader pairs link after GLES adaptation. One VR-layer shader requires an unavailable AMD extension. Synthetic BC1/BC3 GPU decoding passes 2,048 pixels against the CPU reference using bounded buffers; integration, other BC formats and full rendered fidelity are pending. The pinned Unity Android module is installed; a Unity Android game export has not been established.
+
+Static Windows PE/CLI inspection is ready while the user downloads that input. Build/install scripts, private artifact handling and source-only documentation are in place. The regression suite passes 78 Python and 4 Swift tests. See [Android details and commands](ANDROID.md). The installed iPad game is unchanged.
 
 ## Offline release preparation — 7 October 2026
 

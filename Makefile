@@ -122,3 +122,27 @@ stage-engine-host:
 
 audit-release:
 	$(PYTHON) tools/audit_release.py --history
+
+.PHONY: build-android-probe build-android-cpu-probe inspect-android-runtime inspect-android-shaders deploy-android-probe deploy-android-cpu-probe
+
+build-android-probe:
+	$(PYTHON) tools/build_android.py
+
+build-android-cpu-probe:
+	$(PYTHON) tools/build_android.py --with-original-kernel
+
+inspect-android-runtime:
+	$(PYTHON) tools/inspect_android_runtime.py
+
+inspect-android-shaders:
+	$(SCENE_PYTHON) tools/inspect_android_shaders.py --limit 64
+
+deploy-android-probe:
+	$(PYTHON) tools/deploy_android.py
+
+deploy-android-cpu-probe:
+	$(PYTHON) tools/deploy_android.py --with-original-kernel
+
+.PHONY: setup-unity-android
+setup-unity-android:
+	$(PYTHON) tools/setup_unity_android.py
