@@ -146,3 +146,13 @@ deploy-android-cpu-probe:
 .PHONY: setup-unity-android
 setup-unity-android:
 	$(PYTHON) tools/setup_unity_android.py
+
+.PHONY: build-android-runtime-probe deploy-android-runtime-probe inspect-android-initializers
+build-android-runtime-probe:
+	$(PYTHON) tools/build_android.py --with-mapped-runtime
+
+deploy-android-runtime-probe:
+	$(PYTHON) tools/deploy_android.py --with-mapped-runtime
+
+inspect-android-initializers:
+	$(PYTHON) tools/inspect_android_initializers.py

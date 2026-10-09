@@ -37,6 +37,28 @@ Windows metadata v27 contains 16,187 types and 112,430 method records versus Mac
 4. **Game integration:** original data paths, Amplify CPU codecs, streaming, Android lifecycle, touch/controller input, saves and full scene transitions. The existing iPad work supplies evidence and original adapters, not a ready Android binary.
 5. **Packaging:** the current APK is small; full-game packaging/data installation is not implemented. Do not promise that all desktop assets fit inside one APK or that a successful Android compile is gameplay.
 
+## Mapped ARM64 runtime checkpoint
+
+Verified on the physical SM-X920 on 9 October 2026:
+
+- Four original image segments mapped across 49,086,464 virtual bytes, with zero-filled BSS and original segment protections. Staging is writable, then executable segments become RX; no RWX mapping is used.
+- All 320,805 classic-dyld pointer rebases applied. Static locations/targets independently match Apple's `dyld_info -fixups` output exactly, including two tagged RTTI pointers. The mapper verifies original pointer values and executable-byte equality.
+- Parsed 243 exports, 364 binding slots and 10 initializers. Bind records include five weak replacements; identical duplicate bind operations are collapsed. Unsupported layouts fail explicitly.
+- Three reviewed import symbols resolve through explicit Android adapters: allocation, release and Mach timebase information. Original `il2cpp_alloc`/`il2cpp_free` exports successfully allocate/write/free 1-byte, 4 KiB and 1 MiB buffers. The original clock initializer writes the expected timebase and ratio into mapped globals. Original vector arithmetic also passes from the mapped image.
+- **331 import symbols remain unresolved. Full IL2CPP initialization has not run.** Unknown import slots stay null; only the reviewed entry points are invoked. This is a loader/ABI diagnostic, not gameplay or a general-purpose compatible Mach-O runtime.
+
+The static initializer audit follows owned direct branches and resolves import stubs. It identifies Darwin pthread objects/TLS, dispatch semaphores, C++ guards/destructor registration and exception support as the next bridge families. Three initializer traversals contain indirect sites; callbacks and indirect targets remain unresolved, so direct-call coverage is not complete startup coverage. C++ objects must not be passed blindly into Android's differently configured libc++; destructor lifetime and exception unwinding must account for the mapped image.
+
+```sh
+make inspect-android-initializers
+make build-android-runtime-probe
+make deploy-android-runtime-probe
+```
+
+The build stages the hash-checked image and binary load plan into `artifacts/android/runtime/`, packages them into `artifacts/android/build-mapped-runtime/disco-android-probe.apk`, and runs them only on the selected Android device. This APK contains supplied game code and stays private. CPU-side malformed-input tests map synthetic non-executable fixtures only; supplied binaries are never loaded on the Mac.
+
+Source layout: `tools/disco_port/dyld_plan.py` validates classic dyld streams; `tools/disco_port/arm64_calls.py` audits direct initializer dependencies; `runtime/AndroidHost/MappedImage.h` owns mapping and relocation; `RuntimeProbe.cpp` holds the deliberately narrow bridge and device checks. The Python/Swift regression suite and source audit remain shared with the iPad project.
+
 ## Reproduce the diagnostic
 
 Installed prerequisites: macOS, JDK 17, Android SDK platform 36, build-tools 36.0.0, NDK 27.2.12479018 and platform-tools/ADB. The build uses SDK tools directly and needs no Gradle/Maven download. `--sdk` and `--java-home` override local discovery. Native libraries and the APK are aligned for 16 KiB pages, although the tested tablet currently uses 4 KiB.

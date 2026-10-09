@@ -12,7 +12,7 @@ ROOT=Path(__file__).resolve().parent.parent
 PACKAGE='org.discoport.androidprobe'
 
 
-def deploy(original=False):
+def deploy(original=False, mapped=False):
     output=ROOT/'artifacts/android/device';output.mkdir(parents=True,exist_ok=True)
     def adb(arguments):
         result=subprocess.run(['adb',*arguments],capture_output=True,text=True,timeout=90)
@@ -35,10 +35,10 @@ def deploy(original=False):
     if not config.exists() and not properties['ro.product.model'].startswith('SM-X92'):
         raise ValueError('Connected device is not the requested Tab S10 Ultra family; explicitly select an intended tablet in artifacts/local-android.json')
     config.write_text(json.dumps({'device_identifier':serial},indent=2)+'\n')
-    build=ROOT/'artifacts/android'/('build-original-leaf' if original else 'build-capabilities')
+    build=ROOT/'artifacts/android'/('build-mapped-runtime' if mapped else 'build-original-leaf' if original else 'build-capabilities')
     apk=build/'disco-android-probe.apk'
     report=json.loads((build/'build.json').read_text())
-    if hashlib.sha256(apk.read_bytes()).hexdigest()!=report['apk_sha256'] or report['original_leaf'] is not original:
+    if hashlib.sha256(apk.read_bytes()).hexdigest()!=report['apk_sha256'] or report['original_leaf'] is not original or report.get('mapped_runtime',False) is not mapped:
         raise ValueError('APK differs from its local build report')
     adb(['-s',serial,'install','-r',str(apk)])
     shell('am','force-stop',PACKAGE)
@@ -57,11 +57,14 @@ def deploy(original=False):
     print(json.dumps(data,indent=2))
     if original and data.get('original_leaf_tests_passed') is not True:
         raise ValueError('Original ARM64 arithmetic did not pass on this device')
+    if mapped and data.get('mapped_runtime_trial',{}).get('passed') is not True:
+        raise ValueError('Mapped original runtime trial did not pass; inspect DiscoRuntime log')
 
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--with-original-kernel',action='store_true')
+    parser.add_argument('--with-mapped-runtime',action='store_true')
     args=parser.parse_args()
-    try:deploy(args.with_original_kernel)
+    try:deploy(args.with_original_kernel,args.with_mapped_runtime)
     except (ValueError,OSError,subprocess.SubprocessError) as error:parser.exit(1,f'Android deployment failed: {error}\n')

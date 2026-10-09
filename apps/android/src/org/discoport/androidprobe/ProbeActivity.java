@@ -42,7 +42,7 @@ public final class ProbeActivity extends Activity {
             String report;
             try {
                 JSONObject data = new JSONObject(nativeReport(getAssets()));
-                data.put("scope", "Capability probe and isolated original arithmetic; not Unity/gameplay");
+                data.put("scope", "Device, shader and selected native runtime diagnostics; not Unity/gameplay");
                 data.put("model", Build.MODEL);
                 data.put("manufacturer", Build.MANUFACTURER);
                 data.put("sdk", Build.VERSION.SDK_INT);

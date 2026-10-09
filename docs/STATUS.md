@@ -12,6 +12,10 @@ The supplied Windows GOG build was extracted for static inspection with source h
 
 Windows inspection tooling passes the full 80 Python and 4 Swift regression tests. The source/leak audit reports no findings; installer files, extracted binaries, metadata and comparison reports remain ignored local artifacts.
 
+The Android loader now maps the full original ARM64 runtime image on the Samsung, applies 320,805 pointer rebases and preserves executable bytes. Every rebase location/target agrees with Apple's static dyld tool. Original allocation/free exports, mapped vector arithmetic and the first reviewed clock initializer pass on device. There are still 331 unresolved import symbols; full IL2CPP initialization and gameplay are not running. A bounded initializer dependency audit identifies threading, semaphore, C++ lifecycle and exception bridges as the next work; indirect calls remain explicit gaps. See [the runtime checkpoint](ANDROID.md#mapped-arm64-runtime-checkpoint).
+
+This checkpoint passes 87 Python and 4 Swift tests, real-reference inspection and the source/leak audit. Device deployment verifies the mapped-runtime test result rather than treating compilation or installation as execution success.
+
 ## Offline release preparation — 7 October 2026
 
 - Normal play disables repeated VM scans, main-thread allocator/scene inventories, BC readback experiments and automatic screenshots. Full texture quality, UI scale and frame-rate policy are unchanged. Performance gains have not been measured on device.

@@ -9,6 +9,7 @@
 #include <cmath>
 
 std::string DiscoShaderReport(AAssetManager*);
+std::string DiscoRuntimeReport(AAssetManager*);
 
 struct Vector3 { float x, y, z; };
 static_assert(sizeof(Vector3) == 12, "ARM64 homogeneous float aggregate");
@@ -81,6 +82,7 @@ Java_org_discoport_androidprobe_ProbeActivity_nativeReport(JNIEnv* env, jclass, 
         }
         vkDestroyInstance(instance, nullptr);
     }
-    out << "],\"gles_shader_trial\":" << DiscoShaderReport(AAssetManager_fromJava(env,manager)) << "}";
+    out << "],\"gles_shader_trial\":" << DiscoShaderReport(AAssetManager_fromJava(env,manager))
+        << ",\"mapped_runtime_trial\":" << DiscoRuntimeReport(AAssetManager_fromJava(env,manager)) << "}";
     return env->NewStringUTF(out.str().c_str());
 }
