@@ -21,7 +21,13 @@ The macOS ARM64 build avoids instruction-set translation and supplies known meta
 
 Static inspection found 334 imports: 34 Darwin/Objective-C services, 91 C++ ABI/exception imports, 32 thread APIs, 156 names also found in Android's C libraries, and 21 without a name match in the selected API-28 C libraries. Names that match still need signature, structure, flags and error-code review. No `svc` instruction matches were found in the inspected executable sections. This does not prove portability or that every dependency has been identified.
 
-Windows x64 introduces CPU translation if its native binary is reused. However, a Windows build containing real managed assemblies rather than IL2CPP, or useful shader variants, could substantially simplify rebuilding. The Windows input has not yet been supplied/inspected; do not assume its scripting backend or version. It is being downloaded.
+The supplied Windows GOG installer (`winkay16062026_memfix`, 91668) has now been inspected. Selected files were extracted with innoextract 1.9 without running the installer; all four installer/part hashes were unchanged afterward. The installer inventory contains no managed game assembly set. All 24 extracted executable/plugin files are native PE, including x64 `GameAssembly.dll` and `UnityPlayer.dll`; this is another IL2CPP build, not a C# rebuild shortcut.
+
+Its serialized data identifies Unity 2020.3.12f1. The four inspected root containers contain 78 shaders with platform IDs 4/15 (Direct3D 11/OpenGL Core), with no Android variants. All 78 match a Mac shader by container/name and have identical compressed OpenGL segment payloads. This comparison does not cover every addressable bundle or establish material/render equivalence.
+
+Windows metadata v27 contains 16,187 types and 112,430 method records versus Mac's 14,861/102,219. There are 102,083 shared method labels when matching assembly, qualified name and parameter count; this is not a code-equivalence check. Windows includes additional desktop frameworks, and even Assembly-CSharp type counts differ (2,814 versus 2,812). Do not mix metadata, native registrations or offsets between the builds.
+
+**Decision:** retain the Mac ARM64 runtime and matching data as the native Android baseline. The inspected Windows build offers neither managed game IL nor new OpenGL shader payloads, and reusing its native code adds x64 translation. Keep Windows as a separate comparison input. The next runtime gate is an Android-compatible replacement for the Mac loader/runtime ABI, not another asset conversion.
 
 ## Remaining engineering gates
 
@@ -47,7 +53,15 @@ make deploy-android-cpu-probe      # Installs that local CPU-probe APK and retri
 
 The exact Unity 2020.3.12f1 Android module has also been downloaded, hash-verified and installed alongside the local iOS module. Reproduce with `python3 tools/setup_unity_android.py`; it extracts the official package without executing installer scripts. This does not yet establish a working Unity Android export or game runtime.
 
-`python3 tools/inspect_windows_input.py /path/to/windows-game` is prepared for the incoming Windows input. It distinguishes native PE files from CLI metadata and checks owned IL body ranges; trivial/placeholder-like bodies are counted separately. It never loads a supplied executable.
+For the supplied GOG Windows build, install `innoextract` (tested Homebrew 1.9), then:
+
+```sh
+python3 tools/extract_windows_probe.py reference/disco-win
+python3 tools/inspect_windows_input.py artifacts/android/windows-extracted
+.venv/bin/python tools/compare_windows_input.py
+```
+
+The extractor selects only inspection files, records source hashes before/after, and refuses to overwrite an extraction belonging to different inputs. Keep the setup EXE and all BIN parts together. `--include` paths are literal paths/directories, not shell globs. An already extracted game can be passed directly to `inspect_windows_input.py`; its PE/CLI reader checks owned IL body ranges and counts trivial/placeholder-like bodies separately. None of these tools loads a supplied executable. Comparison outputs and installer inventories stay under `artifacts/android/`.
 
 Enable USB debugging and authorize the Mac. Initial discovery accepts one authorized physical ARM64 Tab S10 Ultra. To select another intended tablet or disambiguate multiple devices, create `artifacts/local-android.json` with a `device_identifier` field. Device selection and actual CPU/OS checks precede installation; compatibility is established by the runtime report, not model-name acceptance.
 

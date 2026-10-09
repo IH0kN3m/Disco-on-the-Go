@@ -8,7 +8,9 @@ The connected Galaxy Tab S10 Ultra runs the diagnostic APK, not gameplay. It rep
 
 Twelve of thirteen distinct sampled game shader pairs link after GLES adaptation. One VR-layer shader requires an unavailable AMD extension. Synthetic BC1/BC3 GPU decoding passes 2,048 pixels against the CPU reference using bounded buffers; integration, other BC formats and full rendered fidelity are pending. The pinned Unity Android module is installed; a Unity Android game export has not been established.
 
-Static Windows PE/CLI inspection is ready while the user downloads that input. Build/install scripts, private artifact handling and source-only documentation are in place. The regression suite passes 78 Python and 4 Swift tests. See [Android details and commands](ANDROID.md). The installed iPad game is unchanged.
+The supplied Windows GOG build was extracted for static inspection with source hashes unchanged. All 24 selected executables/plugins are native PE; there is no managed game assembly set in the installer. It also uses Unity 2020.3.12f1 and IL2CPP v27. All 78 matching root shaders have identical OpenGL payloads to Mac, so it offers no shader shortcut in this sample. Metadata differs; the two builds must not be mixed. Retain the Mac ARM64 baseline for native Android work. Reproducible extraction/comparison commands and details are in [Android documentation](ANDROID.md). The installed iPad game is unchanged.
+
+Windows inspection tooling passes the full 80 Python and 4 Swift regression tests. The source/leak audit reports no findings; installer files, extracted binaries, metadata and comparison reports remain ignored local artifacts.
 
 ## Offline release preparation — 7 October 2026
 
