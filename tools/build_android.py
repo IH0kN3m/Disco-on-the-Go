@@ -54,12 +54,12 @@ def build(sdk, java, original=False, shaders=False, mapped=False):
         from stage_android_runtime import stage
         runtime, staged = stage()
         source_hashes = staged['source_hashes']
-        extra += ['-DDISCO_MAPPED_RUNTIME=1', '-I', runtime]
+        extra += ['-DDISCO_MAPPED_RUNTIME=1', '-I', runtime, runtime/'MissingImports.S']
     native = output/'libdiscoprobe.so'
     run([compiler,'-std=c++17','-O2','-fPIC','-shared','-static-libstdc++','-Wl,-z,max-page-size=16384',
          '-Wl,-z,common-page-size=16384','-Wl,--no-undefined','-Wl,-z,noexecstack',
          ROOT/'runtime/AndroidHost/Probe.cpp',ROOT/'runtime/AndroidHost/ShaderProbe.cpp',ROOT/'runtime/AndroidHost/BCDecodeProbe.cpp',
-         ROOT/'runtime/AndroidHost/RuntimeProbe.cpp',*extra,'-lvulkan','-lEGL','-lGLESv3','-landroid','-llog','-o',native])
+         ROOT/'runtime/AndroidHost/RuntimeProbe.cpp',ROOT/'runtime/AndroidHost/DarwinBridge.cpp',ROOT/'runtime/AndroidHost/DarwinVarargs.cpp',ROOT/'runtime/AndroidHost/DarwinThreads.cpp',ROOT/'runtime/AndroidHost/DarwinABI.S',*extra,'-lvulkan','-lEGL','-lGLESv3','-landroid','-llog','-o',native])
     java_sources = sorted((ROOT/'apps/android/src').rglob('*.java'))
     run([java/'bin/javac','--release','8','-classpath',platform,'-d',output/'classes',*java_sources])
     run([tools/'d8','--min-api','28','--lib',platform,'--output',output/'dex',*sorted((output/'classes').rglob('*.class'))])
@@ -70,6 +70,7 @@ def build(sdk, java, original=False, shaders=False, mapped=False):
         apk.write(native,'lib/arm64-v8a/libdiscoprobe.so',compress_type=zipfile.ZIP_STORED)
         if runtime:
             apk.write(runtime/'runtime.map','assets/runtime.map',compress_type=zipfile.ZIP_STORED)
+            apk.write(ROOT/'reference/Disco.app/Contents/Resources/Data/il2cpp_data/Metadata/global-metadata.dat','assets/global-metadata.dat',compress_type=zipfile.ZIP_STORED)
     if shaders:
         samples=ROOT/'artifacts/android/shaders'
         count=int((samples/'shader-count.txt').read_text())
@@ -104,7 +105,7 @@ if __name__ == '__main__':
     parser.add_argument('--java-home',type=Path)
     parser.add_argument('--with-original-kernel',action='store_true',help='Locally link the inspected original ARM64 arithmetic leaf; no runtime initialization')
     parser.add_argument('--with-shader-samples',action='store_true',help='Include locally extracted GLES compile/link experiments; private game data')
-    parser.add_argument('--with-mapped-runtime',action='store_true',help='Map the pinned original image and test reviewed ABI bridges; no full runtime boot')
+    parser.add_argument('--with-mapped-runtime',action='store_true',help='Run the pinned native runtime startup, metadata invocation and collection experiment; no gameplay')
     args=parser.parse_args()
     try:
         java=args.java_home or Path(subprocess.check_output(['/usr/libexec/java_home','-v','17'],text=True).strip())

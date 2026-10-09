@@ -51,14 +51,22 @@ def deploy(original=False, mapped=False):
         result=subprocess.run(['adb','-s',serial,'shell','run-as',PACKAGE,'cat','files/capabilities.json'],capture_output=True,text=True,timeout=10)
         if result.returncode==0:
             data=json.loads(result.stdout);break
+        alive=subprocess.run(['adb','-s',serial,'shell','pidof',PACKAGE],capture_output=True,text=True,timeout=10)
+        if alive.returncode: break
         time.sleep(1)
-    if data is None: raise ValueError('Probe produced no report; inspect the device for a native crash')
+    log=adb(['-s',serial,'logcat','-d','-s','DiscoRuntime:I','*:S'])
+    (output/'runtime-logcat.txt').write_text(log+'\n')
+    if data is None:
+        raise ValueError('Probe produced no report; inspect artifacts/android/device/runtime-logcat.txt')
     (output/'capabilities.json').write_text(json.dumps(data,indent=2)+'\n')
     print(json.dumps(data,indent=2))
     if original and data.get('original_leaf_tests_passed') is not True:
         raise ValueError('Original ARM64 arithmetic did not pass on this device')
-    if mapped and data.get('mapped_runtime_trial',{}).get('passed') is not True:
-        raise ValueError('Mapped original runtime trial did not pass; inspect DiscoRuntime log')
+    if mapped:
+        trial=data.get('mapped_runtime_trial',{})
+        required=('passed','full_runtime_initialized','thread_bridge_passed','metadata_invocation_passed','gc_collection_returned','executable_bytes_unchanged')
+        if any(trial.get(key) is not True for key in required) or trial.get('initializers_completed')!=10:
+            raise ValueError('Mapped original runtime startup checks did not pass; inspect DiscoRuntime log')
 
 
 if __name__=='__main__':

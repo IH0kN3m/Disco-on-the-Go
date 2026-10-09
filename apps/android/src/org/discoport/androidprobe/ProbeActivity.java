@@ -17,7 +17,7 @@ import java.nio.charset.StandardCharsets;
 /** Original capability/CPU probe. No Unity initialization or gameplay. */
 public final class ProbeActivity extends Activity {
     static { System.loadLibrary("discoprobe"); }
-    private static native String nativeReport(android.content.res.AssetManager assets);
+    private static native String nativeReport(android.content.res.AssetManager assets, String dataDirectory);
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -41,7 +41,15 @@ public final class ProbeActivity extends Activity {
         new Thread(() -> {
             String report;
             try {
-                JSONObject data = new JSONObject(nativeReport(getAssets()));
+                File metadataRoot = new File(getFilesDir(), "NativeMetadata");
+                File metadataFolder = new File(metadataRoot, "Metadata");
+                metadataFolder.mkdirs();
+                try (java.io.InputStream input = getAssets().open("global-metadata.dat");
+                     FileOutputStream destination = new FileOutputStream(new File(metadataFolder, "global-metadata.dat"))) {
+                    byte[] buffer = new byte[65536]; int length;
+                    while ((length = input.read(buffer)) != -1) destination.write(buffer, 0, length);
+                } catch (java.io.FileNotFoundException absent) { /* Capability-only build. */ }
+                JSONObject data = new JSONObject(nativeReport(getAssets(), metadataRoot.getAbsolutePath()));
                 data.put("scope", "Device, shader and selected native runtime diagnostics; not Unity/gameplay");
                 data.put("model", Build.MODEL);
                 data.put("manufacturer", Build.MANUFACTURER);

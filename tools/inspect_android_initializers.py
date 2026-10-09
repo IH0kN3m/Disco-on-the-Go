@@ -17,6 +17,10 @@ if __name__ == '__main__':
     records = [initializer_calls(image, starts, plan['bindings'], root) for root in plan['initializers']]
     output = ROOT/'artifacts/android/runtime/initializer-dependencies.json'; output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps({'source_hashes': hashes, 'initializers': records}, indent=2)+'\n')
+    boot=initializer_calls(image, starts, plan['bindings'], plan['exports']['_il2cpp_init'])
+    (output.parent/'boot-dependencies.json').write_text(json.dumps(boot,indent=2)+'\n')
+    print(f"Runtime boot: {boot['function_count']} direct-reachable functions, {len(boot['imports'])} imports, "
+          f"{len(boot['indirect_calls_or_jumps'])} unresolved indirect sites")
     for n, r in enumerate(records):
         print(f"Initializer {n}: {r['function_count']} direct-reachable functions, {len(r['imports'])} imports, "
               f"{len(r['indirect_calls_or_jumps'])} unresolved indirect sites, {len(r['unresolved_direct_edges'])} unresolved direct edges")

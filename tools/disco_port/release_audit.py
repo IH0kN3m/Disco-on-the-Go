@@ -4,7 +4,7 @@ import re
 
 ROOT_FILES = {'.gitattributes', '.gitignore', 'AGENTS.md', 'LICENSE', 'Makefile', 'Package.swift', 'README.md', 'requirements-scenes.lock'}
 SUFFIXES = {
-    'tools': {'.py', '.java'}, 'runtime': {'.swift', '.cs', '.h', '.mm', '.cpp'},
+    'tools': {'.py', '.java'}, 'runtime': {'.swift', '.cs', '.h', '.mm', '.cpp', '.S'},
     'tests': {'.py'}, 'docs': {'.md'}, 'analysis': {'.md'},
     'apps': {'.swift', '.plist', '.pbxproj', '.xcscheme', '.java', '.xml'}, '.github': {'.yml', '.yaml', '.md'},
 }

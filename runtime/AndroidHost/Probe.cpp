@@ -9,7 +9,7 @@
 #include <cmath>
 
 std::string DiscoShaderReport(AAssetManager*);
-std::string DiscoRuntimeReport(AAssetManager*);
+std::string DiscoRuntimeReport(AAssetManager*,const char*);
 
 struct Vector3 { float x, y, z; };
 static_assert(sizeof(Vector3) == 12, "ARM64 homogeneous float aggregate");
@@ -28,7 +28,8 @@ static std::string Quote(const char* text) {
 }
 
 extern "C" JNIEXPORT jstring JNICALL
-Java_org_discoport_androidprobe_ProbeActivity_nativeReport(JNIEnv* env, jclass, jobject manager) {
+Java_org_discoport_androidprobe_ProbeActivity_nativeReport(JNIEnv* env, jclass, jobject manager,jstring dataDirectory) {
+    const char* dataPath=env->GetStringUTFChars(dataDirectory,nullptr);
     std::ostringstream out;
     out << "{\"page_size\":" << sysconf(_SC_PAGESIZE);
 #ifdef DISCO_ORIGINAL_KERNEL
@@ -83,6 +84,7 @@ Java_org_discoport_androidprobe_ProbeActivity_nativeReport(JNIEnv* env, jclass, 
         vkDestroyInstance(instance, nullptr);
     }
     out << "],\"gles_shader_trial\":" << DiscoShaderReport(AAssetManager_fromJava(env,manager))
-        << ",\"mapped_runtime_trial\":" << DiscoRuntimeReport(AAssetManager_fromJava(env,manager)) << "}";
+        << ",\"mapped_runtime_trial\":" << DiscoRuntimeReport(AAssetManager_fromJava(env,manager),dataPath) << "}";
+    env->ReleaseStringUTFChars(dataDirectory,dataPath);
     return env->NewStringUTF(out.str().c_str());
 }

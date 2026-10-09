@@ -6,7 +6,7 @@ The previous build runs on a stock **13-inch iPad Pro M4, 16 GB, iPadOS 27**. Op
 
 ## Android investigation
 
-A separate Android diagnostic APK now runs on the Galaxy Tab S10 Ultra. Original ARM64 arithmetic works, but the full runtime, shaders, texture residency and gameplay still require porting. The tablet lacks the native BC support used on iPad. See [Android status and build steps](docs/ANDROID.md); this is not yet a playable Android release.
+A separate Android diagnostic APK now runs on the Galaxy Tab S10 Ultra. The original ARM64 IL2CPP runtime initializes, invokes a method through metadata and completes a garbage collection. Unity integration, remaining ABI/exception support, rendering, texture residency and gameplay still require work. The tablet lacks the native BC support used on iPad. See [Android status and build steps](docs/ANDROID.md); this is not yet a playable Android release.
 
 ## Requirements
 

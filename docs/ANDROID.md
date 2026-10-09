@@ -31,7 +31,7 @@ Windows metadata v27 contains 16,187 types and 112,430 method records versus Mac
 
 ## Remaining engineering gates
 
-1. **Runtime:** choose between managed-code rebuilding if suitable inputs exist, or an ARM64 Mach-O/ELF compatibility implementation. The latter needs rebasing/binding, C++ runtime and unwind compatibility, Darwin thread/structure wrappers, Apple service replacements and Unity Android integration. The arithmetic test proves only a tiny shared calling-convention case.
+1. **Runtime:** original ARM64 IL2CPP startup, metadata invocation and one full garbage collection now pass on the target tablet. Complete C++ exception/unwind compatibility, remaining services, sustained collector tests and Unity Android integration are still required. Startup success does not cover arbitrary game execution.
 2. **Shaders:** the first 79 sampled objects contain Metal and OpenGL Core platform IDs, not GLES/Vulkan. Readable GLCore source is available. The current conversion experiment preserves arithmetic but changes the shader-language profile, precision defaults and desktop uniform-location declarations. Unity bindings, keyword variants, render state and visual correctness remain to be rebuilt/verified; unsupported features must fail explicitly.
 3. **Textures:** the iPad's native BC path cannot run on this GPU. The BC1/BC3 GPU block experiment above is the first step toward decoded textures with bounded residency. The other formats and Unity integration remain unresolved. BC→ASTC encoding introduces another lossy compression step; it is not a zero-loss substitute and is not selected automatically.
 4. **Game integration:** original data paths, Amplify CPU codecs, streaming, Android lifecycle, touch/controller input, saves and full scene transitions. The existing iPad work supplies evidence and original adapters, not a ready Android binary.
@@ -39,15 +39,23 @@ Windows metadata v27 contains 16,187 types and 112,430 method records versus Mac
 
 ## Mapped ARM64 runtime checkpoint
 
-Verified on the physical SM-X920 on 9 October 2026:
+Verified on the physical SM-X920 on 10 October 2026:
 
 - Four original image segments mapped across 49,086,464 virtual bytes, with zero-filled BSS and original segment protections. Staging is writable, then executable segments become RX; no RWX mapping is used.
 - All 320,805 classic-dyld pointer rebases applied. Static locations/targets independently match Apple's `dyld_info -fixups` output exactly, including two tagged RTTI pointers. The mapper verifies original pointer values and executable-byte equality.
 - Parsed 243 exports, 364 binding slots and 10 initializers. Bind records include five weak replacements; identical duplicate bind operations are collapsed. Unsupported layouts fail explicitly.
-- Three reviewed import symbols resolve through explicit Android adapters: allocation, release and Mach timebase information. Original `il2cpp_alloc`/`il2cpp_free` exports successfully allocate/write/free 1-byte, 4 KiB and 1 MiB buffers. The original clock initializer writes the expected timebase and ratio into mapped globals. Original vector arithmetic also passes from the mapped image.
-- **331 import symbols remain unresolved. Full IL2CPP initialization has not run.** Unknown import slots stay null; only the reviewed entry points are invoked. This is a loader/ABI diagnostic, not gameplay or a general-purpose compatible Mach-O runtime.
+- All ten original initializers complete. `il2cpp_init` reads the supplied matching metadata and returns success. Domain/assembly/class/method lookup finds `UnityEngine.Vector3.Dot`; original `il2cpp_runtime_invoke` returns a boxed float that unboxes to 32. This exercises the metadata/object runtime, beyond calling a pinned arithmetic address.
+- Original `il2cpp_gc_collect(2)` returns. A separate synthetic thread check performs 16 suspend/register-capture/resume cycles, rejects undersized output and token release while suspended, and checks that the worker stops making progress while parked. This is not a sustained multithreaded GC or game-lifecycle test.
+- 157 distinct import symbols resolve through explicit adapters (166 binding records). **177 remain unsupported**, including exception/unwind, portions of libc++ and Apple services. Unsupported function calls abort with their symbol/caller offset; unresolved data symbols point into inaccessible guard pages. They never masquerade as successful operations or readable C++ objects.
+- Original allocator and timebase checks still pass. Executable bytes remain unchanged; adapters live in the original Android host.
 
-The static initializer audit follows owned direct branches and resolves import stubs. It identifies Darwin pthread objects/TLS, dispatch semaphores, C++ guards/destructor registration and exception support as the next bridge families. Three initializer traversals contain indirect sites; callbacks and indirect targets remain unresolved, so direct-call coverage is not complete startup coverage. C++ objects must not be passed blindly into Android's differently configured libc++; destructor lifetime and exception unwinding must account for the mapped image.
+The offline startup traversal finds 887 direct-reachable functions, 119 imports and 203 indirect sites. It is an audit aid, not complete coverage. `make inspect-android-initializers` regenerates both initializer and boot reports without executing supplied binaries on the Mac.
+
+The bridge owns native mutex/condition/RW-lock objects in address-keyed tables rather than overwriting Darwin storage. It handles Darwin TLS keys, semaphores, static guards, thread attributes, selected file/stat/mapping/locale/system queries, stack-based variadic arguments and Apple's 24-byte alternate string layout. ARM64 constructors/destructors must return the original object pointer: omitting that return corrupted a vector during array-metadata setup; a regression test now checks this contract.
+
+The collector bridge suspends only registered threads in this process through a reserved signal and futex handshake. Token release waits for a completed resume. The `_setjmp` adapter only spills registers for the pinned collector callsite; staging rejects changed callsites or a longjmp import. It does not implement general nonlocal jumps. Cancellation state is bookkeeping only: this source imports no cancellation request API. Darwin/Bionic error-code coverage is incomplete.
+
+The mapped image, metadata and registered callbacks are retained for the diagnostic process lifetime. Shutdown/finalization, exception propagation through mapped frames, additional library roots, repeated host initialization and Android lifecycle integration remain unverified. Do not use this diagnostic as a general-purpose Mach-O loader.
 
 ```sh
 make inspect-android-initializers
@@ -57,7 +65,7 @@ make deploy-android-runtime-probe
 
 The build stages the hash-checked image and binary load plan into `artifacts/android/runtime/`, packages them into `artifacts/android/build-mapped-runtime/disco-android-probe.apk`, and runs them only on the selected Android device. This APK contains supplied game code and stays private. CPU-side malformed-input tests map synthetic non-executable fixtures only; supplied binaries are never loaded on the Mac.
 
-Source layout: `tools/disco_port/dyld_plan.py` validates classic dyld streams; `tools/disco_port/arm64_calls.py` audits direct initializer dependencies; `runtime/AndroidHost/MappedImage.h` owns mapping and relocation; `RuntimeProbe.cpp` holds the deliberately narrow bridge and device checks. The Python/Swift regression suite and source audit remain shared with the iPad project.
+Source layout: `tools/disco_port/dyld_plan.py` validates classic dyld streams; `tools/disco_port/arm64_calls.py` audits direct initializer dependencies; `runtime/AndroidHost/MappedImage.h` owns mapping and relocation; `DarwinBridge`, `DarwinString`, `DarwinSystem`, `DarwinVarargs`, `DarwinThreads` and `DarwinABI.S` implement original, limited ABI adapters; `RuntimeProbe.cpp` drives the startup and device checks. The shared regression suite passes 89 Python and 4 Swift tests. `make inspect` and the source/history leak audit pass. Synthetic host tests cover opaque-storage guards, held-lock destruction, timeouts, TLS isolation, string ownership/constructor returns, sysctl buffer bounds and malformed variadic formats. Supplied native binaries are never executed on the Mac.
 
 ## Reproduce the diagnostic
 
