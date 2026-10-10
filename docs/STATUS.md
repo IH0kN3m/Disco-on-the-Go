@@ -1,6 +1,12 @@
 # Implementation status
 
-9 October 2026
+10 October 2026
+
+## iPad dialogue and controls — 10 October 2026
+
+The M4 user confirmed that dialogue fits without the previously reported stretching, clipping or overlap, and that the updated controls behave correctly. The display adapter now detects new canvas registry owners/versions and reference-size resets even when the viewport and active scene stay unchanged. The gamepad icon itself can be dragged, retains a normalized local position and is clamped to safe display bounds. Saves and settings were backed up before installation; the established app identifier and persistent assets were retained.
+
+The remaining report was slightly small dialogue text at the maximum setting. A dialogue-only preset adjustment increases font sizes by 12.5%, retaining the user's selected setting and the game's paragraph/layout paths. The signed build is installed; its device log confirms that the adjusted presets are initialized before the game selects a text size. Device readability and wrapping verification for this adjustment are pending. No global UI font scale or Android input/rendering policy was changed. The suite passes 131 Python and 4 Swift tests, including malformed font presets, late layout ownership, reference resets and safe-area icon placement. Runtime changes do not establish full-playthrough stability.
 
 ## Android investigation — 9 October 2026
 

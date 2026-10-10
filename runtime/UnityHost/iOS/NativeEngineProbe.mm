@@ -14,6 +14,7 @@
 #include "Unity/UnityInterface.h"
 #include "DiscoSceneResidency.h"
 #include "DiscoGameDisplay.h"
+#include "DiscoDialogueText.h"
 #include "DiscoTouchControls.h"
 
 extern "C" bool Unity_il2cppNoExceptions() { return false; }
@@ -537,6 +538,7 @@ extern "C" void DiscoNativeEngineLoaded()
 {
     DiscoNativeEngineStage("UnityLoadApplication returned");
     DiscoSceneResidency::Install();
+    DiscoDialogueText::Install();
     ConfigureLandscapeDisplay();
     dispatch_async(dispatch_get_main_queue(), ^{ DiscoTouchControls::Install(); });
     static dispatch_source_t displayTimer;

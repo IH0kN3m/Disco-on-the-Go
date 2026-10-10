@@ -4,6 +4,17 @@
 #include <cstdint>
 namespace DiscoDisplay {
 struct Profile { float aspect, referenceWidth, referenceHeight; };
+struct LayoutOwners {
+    uintptr_t registry,root;
+    int32_t registryVersion;
+};
+inline bool SameOwners(const LayoutOwners& a,const LayoutOwners& b) {
+    return a.registry==b.registry&&a.root==b.root&&a.registryVersion==b.registryVersion;
+}
+inline bool MatchingReference(float x,float y,const Profile& profile) {
+    return std::isfinite(x)&&std::isfinite(y)&&std::fabs(x-profile.referenceWidth)<0.5f&&
+           std::fabs(y-profile.referenceHeight)<0.5f;
+}
 inline int NativeAspectMode(const Profile& profile) {
     // Accept small differences from rounded physical panel dimensions.
     if (std::fabs(profile.aspect-16.0f/10.0f)<0.01f) return 2;

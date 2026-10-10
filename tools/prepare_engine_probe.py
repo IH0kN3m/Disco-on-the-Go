@@ -112,6 +112,9 @@ def prepare(game_data=False, retag=False):
     shutil.copyfile(ROOT / 'runtime/UnityHost/DisplayProfile.h', output / 'Libraries/DisplayProfile.h')
     shutil.copyfile(ROOT / 'runtime/UnityHost/iOS/DiscoTouchControls.h', output / 'Libraries/DiscoTouchControls.h')
     shutil.copyfile(ROOT / 'runtime/UnityHost/TouchControlPolicy.h', output / 'Libraries/TouchControlPolicy.h')
+    shutil.copyfile(ROOT / 'runtime/UnityHost/OverlayPlacement.h', output / 'Libraries/OverlayPlacement.h')
+    shutil.copyfile(ROOT / 'runtime/UnityHost/DialogueTextPolicy.h', output / 'Libraries/DialogueTextPolicy.h')
+    shutil.copyfile(ROOT / 'runtime/UnityHost/iOS/DiscoDialogueText.h', output / 'Libraries/DiscoDialogueText.h')
     lines = [f'extern "C" void binding_{i}() asm("{symbol}");' for i, symbol in enumerate(registrations)]
     lines.append('void RegisterAllStrippedInternalCalls() {')
     lines.extend(f'    binding_{i}();' for i in range(len(registrations)))

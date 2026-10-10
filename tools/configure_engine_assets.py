@@ -70,6 +70,9 @@ def configure(increased_memory=False, debug_memory=None, amplify_cpu=False, lazy
     shutil.copyfile(ROOT / 'runtime/UnityHost/DisplayProfile.h', PROJECT / 'Libraries/DisplayProfile.h')
     shutil.copyfile(ROOT / 'runtime/UnityHost/iOS/DiscoTouchControls.h', PROJECT / 'Libraries/DiscoTouchControls.h')
     shutil.copyfile(ROOT / 'runtime/UnityHost/TouchControlPolicy.h', PROJECT / 'Libraries/TouchControlPolicy.h')
+    shutil.copyfile(ROOT / 'runtime/UnityHost/OverlayPlacement.h', PROJECT / 'Libraries/OverlayPlacement.h')
+    shutil.copyfile(ROOT / 'runtime/UnityHost/DialogueTextPolicy.h', PROJECT / 'Libraries/DialogueTextPolicy.h')
+    shutil.copyfile(ROOT / 'runtime/UnityHost/iOS/DiscoDialogueText.h', PROJECT / 'Libraries/DiscoDialogueText.h')
     info_path = PROJECT / 'Info.plist'
     info = plistlib.loads(info_path.read_bytes())
     info['DiscoPersistentAssets'] = True

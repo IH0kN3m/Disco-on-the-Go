@@ -2,6 +2,7 @@
 // the pinned Unity host's existing keyboard event API. No recovered method bodies.
 #pragma once
 #include "TouchControlPolicy.h"
+#include "OverlayPlacement.h"
 #import "UI/UnityView.h"
 #import <GameController/GameController.h>
 
@@ -142,6 +143,7 @@ static void Change(UIPinchGestureRecognizer* gesture) {
 @end
 
 @interface DiscoTouchOverlay : NSObject<UIGestureRecognizerDelegate>
+@property(nonatomic, retain) UIView* surface;
 @property(nonatomic, retain) UIView* leftPanel;
 @property(nonatomic, retain) UIView* rightPanel;
 @property(nonatomic, retain) UIButton* toggle;
@@ -149,10 +151,55 @@ static void Change(UIPinchGestureRecognizer* gesture) {
 @property(nonatomic, retain) NSArray<NSString*>* buttons;
 @property(nonatomic, retain) NSMutableArray<DiscoAnalogStick*>* sticks;
 @property(nonatomic) BOOL connecting;
+@property(nonatomic) CGPoint iconAnchor;
+@property(nonatomic) CGPoint dragStart;
+@property(nonatomic) BOOL hasIconAnchor;
+- (void)layoutIcon;
 - (void)reset;
 @end
 
+@interface DiscoOverlaySurface : DiscoTouchPanel
+@property(nonatomic, assign) DiscoTouchOverlay* owner;
+@end
+@implementation DiscoOverlaySurface
+- (void)layoutSubviews { [super layoutSubviews]; [self.owner layoutIcon]; }
+- (void)safeAreaInsetsDidChange { [super safeAreaInsetsDidChange]; [self.owner layoutIcon]; }
+@end
+
 @implementation DiscoTouchOverlay
+- (BOOL)iconArea:(DiscoOverlay::Area*)area {
+    UIEdgeInsets safe=self.surface.superview.safeAreaInsets;
+    return DiscoOverlay::Bounds(self.surface.bounds.size.width,self.surface.bounds.size.height,
+        safe.left+8,safe.top+8,safe.right+8,safe.bottom+8,
+        self.toggle.bounds.size.width,self.toggle.bounds.size.height,*area);
+}
+- (void)layoutIcon {
+    if(!self.toggle)return;
+    DiscoOverlay::Area area;if(![self iconArea:&area])return;
+    if(!self.hasIconAnchor){
+        auto anchor=DiscoOverlay::Normalize(area,{self.surface.bounds.size.width-37,91});
+        self.iconAnchor=CGPointMake(anchor.x,anchor.y);self.hasIconAnchor=YES;
+    }
+    auto point=DiscoOverlay::Restore(area,{self.iconAnchor.x,self.iconAnchor.y});
+    self.toggle.center=CGPointMake(point.x,point.y);
+}
+- (void)dragged:(UIPanGestureRecognizer*)gesture {
+    DiscoOverlay::Area area;if(![self iconArea:&area])return;
+    if(gesture.state==UIGestureRecognizerStateBegan){
+        self.dragStart=self.toggle.center;[self reset];
+    }
+    if(gesture.state==UIGestureRecognizerStateBegan||gesture.state==UIGestureRecognizerStateChanged||
+       gesture.state==UIGestureRecognizerStateEnded||gesture.state==UIGestureRecognizerStateCancelled){
+        CGPoint delta=[gesture translationInView:self.surface];
+        auto point=DiscoOverlay::Clamp(area,{self.dragStart.x+delta.x,self.dragStart.y+delta.y});
+        self.toggle.center=CGPointMake(point.x,point.y);
+        auto normalized=DiscoOverlay::Normalize(area,point);self.iconAnchor=CGPointMake(normalized.x,normalized.y);
+        self.hasIconAnchor=YES;
+    }
+    if(gesture.state==UIGestureRecognizerStateEnded||gesture.state==UIGestureRecognizerStateCancelled){
+        [NSUserDefaults.standardUserDefaults setObject:@[@(self.iconAnchor.x),@(self.iconAnchor.y)] forKey:@"DiscoControllerIconPosition"];
+    }
+}
 - (void)pinched:(UIPinchGestureRecognizer*)gesture { DiscoTouchControls::Change(gesture); }
 - (BOOL)gestureRecognizerShouldBegin:(UIGestureRecognizer*)gesture {
     return self.leftPanel.hidden && DiscoTouchControls::Eligible(DiscoTouchControls::Camera()) && !DiscoTouchControls::PointerOverUI();
@@ -258,6 +305,15 @@ static void Install() {
     UIView* view = GetAppController().unityView;
     if (!view) Fail("touch surface absent");
     owner = [[DiscoTouchOverlay alloc] init];
+    DiscoOverlaySurface* surface=[[DiscoOverlaySurface alloc] initWithFrame:view.bounds];
+    surface.owner=owner;surface.autoresizingMask=UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight;
+    surface.backgroundColor=UIColor.clearColor;owner.surface=surface;[view addSubview:surface];
+    id saved=[NSUserDefaults.standardUserDefaults objectForKey:@"DiscoControllerIconPosition"];
+    if([saved isKindOfClass:NSArray.class]&&[saved count]==2&&
+       [saved[0] isKindOfClass:NSNumber.class]&&[saved[1] isKindOfClass:NSNumber.class]){
+        double x=[saved[0] doubleValue],y=[saved[1] doubleValue];
+        if(std::isfinite(x)&&std::isfinite(y)&&x>=0&&x<=1&&y>=0&&y<=1){owner.iconAnchor=CGPointMake(x,y);owner.hasIconAnchor=YES;}
+    }
     escapeKey = UnityStringToKey("escape");
     if (escapeKey <= 0) Fail("menu key mapping unavailable");
     UIPinchGestureRecognizer* recognizer = [[UIPinchGestureRecognizer alloc] initWithTarget:owner action:@selector(pinched:)];
@@ -288,17 +344,20 @@ static void Install() {
     Button(owner,owner.rightPanel,@"X",CGRectMake(158,100,50,50),2);
     Button(owner,owner.rightPanel,@"Y",CGRectMake(212,46,50,50),3);
     Button(owner,owner.rightPanel,@"≡",CGRectMake(76,0,60,42),8);
-    [view addSubview:owner.leftPanel]; [view addSubview:owner.rightPanel];
+    [surface addSubview:owner.leftPanel]; [surface addSubview:owner.rightPanel];
     owner.toggle = [UIButton buttonWithType:UIButtonTypeSystem];
     owner.toggle.frame = CGRectMake(view.bounds.size.width-58,72,42,38);
-    owner.toggle.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleBottomMargin;
     owner.toggle.backgroundColor = [UIColor colorWithWhite:0.05 alpha:0.55];
     owner.toggle.tintColor = UIColor.whiteColor; owner.toggle.layer.cornerRadius = 10;
     [owner.toggle setImage:[UIImage systemImageNamed:@"gamecontroller"] forState:UIControlStateNormal];
     [owner.toggle setImage:[UIImage systemImageNamed:@"gamecontroller.fill"] forState:UIControlStateSelected];
     owner.toggle.accessibilityLabel = @"Show or hide gamepad";
+    owner.toggle.accessibilityHint = @"Drag to move the gamepad icon";
     [owner.toggle addTarget:owner action:@selector(toggled:) forControlEvents:UIControlEventTouchUpInside];
-    [view addSubview:owner.toggle];
+    UIPanGestureRecognizer* drag=[[UIPanGestureRecognizer alloc] initWithTarget:owner action:@selector(dragged:)];
+    drag.maximumNumberOfTouches=1;drag.cancelsTouchesInView=YES;
+    [owner.toggle addGestureRecognizer:drag];
+    [surface addSubview:owner.toggle];[owner layoutIcon];
     [NSNotificationCenter.defaultCenter addObserver:owner selector:@selector(inactive:) name:UIApplicationWillResignActiveNotification object:nil];
     printf("NATIVE TOUCH: pinch and hidden native virtual gamepad installed\n");
 }

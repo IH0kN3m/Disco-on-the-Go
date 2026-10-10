@@ -47,7 +47,7 @@ python3 tools/deploy_ipad.py --engine --mip-limit 0 --lazy-scenes
 
 This signs, installs, uploads the local assets, and launches the app. Initial transfer is large; later deployments skip it when the manifest matches. Keep the bundle identifier consistent to preserve the app's saves, and back up saves before replacing or deleting the app. [Device setup](docs/IPAD.md) has details.
 
-Tap to move/interact; pinch to zoom. The small gamepad icon shows or hides dual sticks, a D-pad, ABXY, shoulders, triggers and Menu. Hiding the pad restores direct touch. The existing game UI scale and frame-rate policy remain unchanged.
+Tap to move/interact; pinch to zoom. Tap the small gamepad icon to show or hide dual sticks, a D-pad, ABXY, shoulders, triggers and Menu; drag the icon itself to reposition it. Hiding the pad restores direct touch. Dialogue font presets receive a modest readability increase; other UI font settings and the frame-rate policy remain unchanged. See [iPad controls and dialogue](docs/IPAD.md#touch-and-dialogue).
 
 ## Development and distribution
 

@@ -17,6 +17,15 @@ int main() {
     assert(DiscoDisplay::NativeAspectMode(p)==3);
     assert(std::fabs(p.referenceWidth/p.referenceHeight-4.0f/3.0f)<0.00001f);
     assert(std::fabs(p.referenceHeight*(2752/p.referenceWidth)-2064)<0.01f);
+    // New dialogue canvases can appear without any scene/view-size change.
+    DiscoDisplay::LayoutOwners before={100,200,1};
+    assert(DiscoDisplay::SameOwners(before,{100,200,1}));
+    assert(!DiscoDisplay::SameOwners(before,{100,200,2}));
+    assert(!DiscoDisplay::SameOwners(before,{101,200,1}));
+    assert(!DiscoDisplay::SameOwners(before,{100,201,1}));
+    assert(DiscoDisplay::MatchingReference(p.referenceWidth,p.referenceHeight,p));
+    assert(!DiscoDisplay::MatchingReference(2372,2048,p));
+    assert(!DiscoDisplay::MatchingReference(NAN,2048,p));
     assert(DiscoDisplay::TabletProfile(1376,1032,p));
     for (auto dimensions : {std::pair<int,int>{2420,1668},{2360,1640},{2266,1488},{2732,2048}}) {
         assert(DiscoDisplay::TabletProfile(dimensions.first,dimensions.second,p));

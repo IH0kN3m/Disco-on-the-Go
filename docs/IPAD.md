@@ -24,6 +24,12 @@ The first asset transfer is about 9.6 GB. Later deployments skip it when the rea
 
 The working tree's unsigned output is not automatically installed. Device logs go to `Documents/native-engine.log`; retrieve only into ignored `artifacts/`. A returned process ID proves launch submission, not successful gameplay. Confirm loading a save, movement/input, UI alignment, a scene transition and save/reload on the actual device after runtime changes.
 
+## Touch and dialogue
+
+Tap the gamepad icon to show or hide the virtual controller. Drag the icon itself to move it; a drag does not toggle the controller. Its position is saved locally and kept inside the display's safe area after resizing or rotation. Empty space around the controls passes touches through to the game. Pinch zoom remains available on iPad.
+
+The landscape layout uses the actual screen aspect. Newly created dialogue canvases and settings-driven layout resets receive the same fitting policy as the main UI. Dialogue font presets receive a 12.5% increase, rounded to whole font units, while retaining the selected dialogue-size setting. Other UI font settings are unchanged. The adapter adjusts runtime configuration before the first player frame; wrapping and scroll restoration use the game's existing code. This policy is specific to iPad; other models still need device testing.
+
 ## Separate diagnostics
 
 These targets contain no complete game and are not part of `make port`:

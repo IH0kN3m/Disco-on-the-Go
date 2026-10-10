@@ -17,6 +17,46 @@ static const MethodInfo* Method(Il2CppClass* klass, const char* name, int count,
 #endif
     return method;
 }
+#ifndef __ANDROID__
+struct Vector2 {float x,y;};
+static Vector2 VectorValue(Il2CppObject* object) {
+    uint32_t alignment=0;
+    if(!object||std::strcmp(il2cpp_class_get_name(il2cpp_object_get_class(object)),"Vector2")||
+       il2cpp_class_value_size(il2cpp_object_get_class(object),&alignment)!=sizeof(Vector2))Fail("display Vector2 ABI");
+    Vector2 value;std::memcpy(&value,il2cpp_object_unbox(object),sizeof(value));return value;
+}
+static DiscoDisplay::LayoutOwners LayoutOwners(Il2CppClass* fitters,Il2CppObject* root,bool& matches,const DiscoDisplay::Profile& profile) {
+    auto* registryField=Field(fitters,"registry",0);
+    if(!(il2cpp_field_get_flags(registryField)&0x10))Fail("display registry ownership");
+    Il2CppObject* registry=nullptr;il2cpp_field_static_get_value(registryField,&registry);
+    int32_t version=0;
+    if(registry){
+        auto* list=il2cpp_object_get_class(registry);
+        auto* field=il2cpp_class_get_field_from_name(list,"_version");
+        if(!field||(il2cpp_field_get_flags(field)&0x10)||il2cpp_type_get_type(il2cpp_field_get_type(field))!=IL2CPP_TYPE_I4)Fail("display registry version ABI");
+        il2cpp_field_get_value(registry,field,&version);
+        int count=Integer(Call(list,"get_Count",0,registry,nullptr));
+        if(count<0||count>4096)Fail("display registry count");
+        if(count){
+            int first=0;void* args[]={&first};
+            auto* fitter=Call(list,"get_Item",1,registry,args);
+            auto* scaler=fitter?Read(fitter,Field(fitters,"scaler",0x20)):nullptr;
+            if(scaler){
+                auto value=VectorValue(Call(DiscoSceneResidency::Class("UnityEngine.UI.dll","UnityEngine.UI","CanvasScaler"),"get_referenceResolution",0,scaler,nullptr));
+                matches=matches&&DiscoDisplay::MatchingReference(value.x,value.y,profile);
+            }
+        }
+    }
+    if(root){
+        auto* rect=Read(root,Field(il2cpp_object_get_class(root),"rectTransform",0x18));
+        if(rect){
+            auto value=VectorValue(Call(DiscoSceneResidency::Class("UnityEngine.CoreModule.dll","UnityEngine","RectTransform"),"get_sizeDelta",0,rect,nullptr));
+            matches=matches&&DiscoDisplay::MatchingReference(value.x,value.y,profile);
+        }
+    }
+    return {uintptr_t(registry),uintptr_t(root),version};
+}
+#endif
 static void Refresh() {
 #ifdef __ANDROID__
     if (!DiscoAndroidUnityThread()) Fail("display refresh is not on Unity thread");
@@ -45,7 +85,19 @@ static void Refresh() {
     int count = Integer(Call(scenes, "get_sceneCount", 0, nullptr, nullptr));
     int active = Integer(Call(scenes, "GetActiveScene", 0, nullptr, nullptr));
     static int previousWidth = 0, previousHeight = 0, previousCount = -1, previousActive = 0;
-    if (current == aspectMode && width == previousWidth && height == previousHeight && count == previousCount && active == previousActive) return;
+    bool sameLayout=true;
+#ifndef __ANDROID__
+    auto* layoutFitters=DiscoSceneResidency::Class("Assembly-CSharp.dll","","AspectRatioFitterUtility");
+    auto* layoutGlobal=DiscoSceneResidency::Class("Assembly-CSharp.dll","","GlobalUIFitter");
+    il2cpp_runtime_class_init(layoutFitters);il2cpp_runtime_class_init(layoutGlobal);
+    auto* layoutRootField=il2cpp_class_get_field_from_name(layoutGlobal,"Singleton");
+    if(!layoutRootField||!(il2cpp_field_get_flags(layoutRootField)&0x10))Fail("global UI singleton ABI");
+    Il2CppObject* layoutRoot=nullptr;il2cpp_field_static_get_value(layoutRootField,&layoutRoot);
+    auto owners=LayoutOwners(layoutFitters,layoutRoot,sameLayout,profile);
+    static DiscoDisplay::LayoutOwners previousOwners={};
+    sameLayout=sameLayout&&DiscoDisplay::SameOwners(owners,previousOwners);
+#endif
+    if (sameLayout && current == aspectMode && width == previousWidth && height == previousHeight && count == previousCount && active == previousActive) return;
     FieldInfo* wanted = Field(aspect, "wantedAspectRatio", 4);
     if (!(il2cpp_field_get_flags(wanted) & 0x10) || il2cpp_type_get_type(il2cpp_field_get_type(wanted)) != IL2CPP_TYPE_R4)
         Fail("display ratio field ABI");
@@ -91,6 +143,9 @@ static void Refresh() {
         }
     }
     previousWidth=width; previousHeight=height; previousCount=count; previousActive=active;
+#ifndef __ANDROID__
+    previousOwners=owners;
+#endif
     Log("NATIVE DISPLAY: game tablet profile=%dx%d reference=%.1fx%.1f scene=%d\n", width,height,reference.x,reference.y,active);
 }
 }
