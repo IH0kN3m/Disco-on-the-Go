@@ -1,87 +1,40 @@
 # Disco on the Go
 
-Build and play Disco Elysium locally on iPad and Android using your own macOS `Disco.app`.
+Build and play Disco Elysium locally on iPad or Android from your own macOS `Disco.app`. This unofficial project includes tools and compatibility code; game files and the app icon come from your copy.
 
-This unofficial project contains build tools and compatibility code. It does not include the game, its icon, extracted assets, Unity or ready-to-install packages. The app icon is taken from your game during the build.
+## Requirements
 
-## Tested devices
-
-| Device | Confirmed |
-| --- | --- |
-| iPad Pro M4, 13-inch, 16 GB | Gameplay, dialogue, touch movement, pinch zoom, virtual controller, saving/loading and scene transitions |
-| Galaxy Tab S10 Ultra | Gameplay, dialogue, outdoor rendering, touch controls and two-finger object highlighting |
-| Retroid Pocket 5 | Opening dialogue, room rendering and quick-save |
-
-A complete playthrough has not been verified. Other devices need testing; see [compatibility and known limits](docs/COMPATIBILITY.md).
-
-## Before building
-
-Use an Apple silicon Mac with Python 3.11+, Rosetta and at least 60 GiB free after tool installation. Put your game at `reference/Disco.app`; a symlink to your existing copy also works. The tools require one specific Unity 2020.3.12f1 game revision and reject other inputs. [Input and tool requirements](docs/BUILD.md) explain the checks.
-
-For iPad, install and select Xcode 27.x. For Android, install JDK 17 and Android SDK Command-line Tools and accept the SDK licenses; see [Android setup](docs/ANDROID.md).
+- Apple silicon Mac, Python 3.11+, Rosetta and 60 GiB free after installing tools.
+- Put the game at `reference/Disco.app`, or symlink it there. Only the [pinned ARM64 revision](tools/disco_port/build_inputs.py) is supported; `make doctor` checks it.
+- Unity 2020.3.12f1 with a valid license. Setup downloads the editor; its executable path is in `artifacts/toolchains/unity-editor-path.txt`. Open the enclosing Unity.app to activate it.
+- [iPad: Xcode and signing setup](docs/IPAD.md) · [Android: JDK and SDK setup](docs/ANDROID.md).
+- About 10 GB on the device, plus room for installation and saves.
 
 ## Build
 
-```sh
-make setup        # Downloads pinned tools and Python dependencies
-make doctor       # Checks the game revision and tools
-make port         # Builds the unsigned iPad app
-```
-
-Unity 2020.3.12f1 needs a valid license. If activation is required, open the locally installed editor before running `make port`.
-
-For Android, use:
+Run from the repository directory:
 
 ```sh
-make setup PLATFORM=android
-make doctor PLATFORM=android
-make port PLATFORM=android
+make setup
+make doctor
+make port
 ```
 
-Builds run offline once setup and license activation are complete. They read the original game without modifying or launching it on the Mac. No Windows game, scene recovery or decompiler is needed.
+For Android, add `PLATFORM=android` to each command. Setup downloads tools; builds run offline afterward and leave the original game unchanged. Windows files are unnecessary.
 
-| Output | Location |
-| --- | --- |
-| Unsigned iPad app | `artifacts/build/native-engine-device-persistent/Build/Products/Debug-iphoneos/Disco on the Go.app` |
-| Android APK | `artifacts/android/build-game/disco-on-the-go.apk` |
-| Android core data | `artifacts/android/build-game/main.1.org.discoport.androidgame.obb` |
-| Android streaming data | `artifacts/android/game-data/external/GameFiles/` |
+Install using the [iPad](docs/IPAD.md) or [Android](docs/ANDROID.md) instructions. The installer transfers the app and game data. Save before updating; uninstalling deletes saves.
 
-The APK alone is not the complete game. Installation transfers its core and streaming data too. Generated files and build logs stay under ignored `artifacts/`.
-
-## Install
-
-Save before updating. Keep the same application identifier and Android signing key to preserve update compatibility and saves. Both platforms need about 10 GB for game data, plus installation space and saves.
-
-**iPad:** use a paired, unlocked device with Developer Mode enabled and an authorized Apple development team with the requested memory capabilities. The tested setup uses a paid account. Create the private configuration described in [iPad installation](docs/IPAD.md), then:
-
-```sh
-make install
-```
-
-**Android:** enable USB debugging and authorize the Mac over USB or paired Wi-Fi. With one connected device:
-
-```sh
-make install PLATFORM=android
-```
-
-The installer signs/installs the app, transfers assets and launches it. Initial transfers are large; later installs reuse matching data. For multiple devices, choose one in `artifacts/local-android.json` as described in [Android installation](docs/ANDROID.md#install).
+If a build fails, follow the reported log path. For missing tools, rerun setup; for Unity export failures, check licensing and Rosetta. Generated files and logs stay in `artifacts/`.
 
 ## Controls
 
-Tap to move and interact. Tap the gamepad icon to show or hide the virtual controller; drag the icon itself to reposition it. Physical controllers are also supported by the game's input system.
+Tap to move or interact. Tap the gamepad icon to show/hide the controller; drag the icon to reposition it. Physical controllers use the game's controls.
 
-On iPad, pinch to zoom and hold to highlight objects. Android uses a two-finger hold for highlighting; pinch zoom is disabled. The iPad dialogue-size presets are slightly larger for readability.
+- **iPad:** pinch to zoom, hold to highlight objects.
+- **Android:** hold two fingers to highlight. Pinch zoom is disabled.
 
-## Contributing
+## Known limits
 
-```sh
-make test
-make audit-release
-```
+[Tested devices and current results](docs/STATUS.md). Other models and a full playthrough are unverified. Visited scenes stay cached, so long sessions may exhaust memory. Save often.
 
-Tests use synthetic data and do not require the game. Public CI runs source checks only. For a bug report, include the device/GPU, game fingerprint, build step and reproduction steps. Keep game files, signing keys, device identifiers and unreviewed logs private.
-
-[Build troubleshooting](docs/BUILD.md) · [Current validation](docs/STATUS.md) · [Release policy](docs/RELEASE.md)
-
-MIT applies to this project's original code only. Game, Unity and plugin licenses remain separate. This project is not affiliated with or endorsed by their owners. Do not distribute your generated game builds through this repository.
+MIT covers this project's original code only; game and tool licenses remain separate. Do not upload game files, generated builds, signing keys or private logs. Contributors: `make test` and [release checks](docs/RELEASE.md).

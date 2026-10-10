@@ -1,7 +1,5 @@
-# Local game input
+# Game input
 
-Place your own compatible macOS game at `reference/Disco.app`, or symlink that path to your copy. Everything here except this README is ignored. The build reads the game without modifying or launching it on the Mac, and writes derived files only under `artifacts/`.
+Place or symlink your own compatible macOS game at `reference/Disco.app`. Run `make doctor` to check it. Everything here except this README is ignored; the original game stays unchanged.
 
-Run `make doctor` or `make doctor PLATFORM=android` to check exact runtime, metadata and plugin fingerprints. See [build requirements](../docs/BUILD.md). Do not upload game files or generated products with bug reports.
-
-Any existing Windows installer comparison files under `reference/disco-win/` remain private and immutable; neither final build uses them.
+Windows files are not needed. See [build instructions](../README.md).
