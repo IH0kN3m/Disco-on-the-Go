@@ -1,12 +1,12 @@
-# Disco iPad port
+# Disco mobile port
 
-Build a native iPad version locally from your own macOS `Disco.app`. This unofficial project distributes original build tools and compatibility adapters, **not the game, Unity, extracted code, assets, or an IPA**.
+Build native iPad and Android versions locally from your own macOS `Disco.app`. This unofficial project distributes original build tools and compatibility adapters, **not the game, Unity, extracted code, assets, IPA, APK or OBB**.
 
 The previous build runs on a stock **13-inch iPad Pro M4, 16 GB, iPadOS 27**. Opening dialogue, textured gameplay, tap movement, pinch zoom, the virtual controller, saving, scene transitions and full-screen 4:3 landscape have been verified. A complete playthrough and long-session stability have not. See [compatibility](docs/COMPATIBILITY.md) for other iPads and current limits.
 
-## Android investigation
+## Android
 
-A separate Android diagnostic APK now runs on the Galaxy Tab S10 Ultra. The original ARM64 IL2CPP runtime initializes, invokes a method through metadata and completes a garbage collection. Unity integration, remaining ABI/exception support, rendering, texture residency and gameplay still require work. The tablet lacks the native BC support used on iPad. See [Android status and build steps](docs/ANDROID.md); this is not yet a playable Android release.
+The Android port runs original gameplay on the Galaxy Tab S10 Ultra and Retroid Pocket 5. Menus, dialogue and rooms are tested; Samsung outdoor rendering and two-finger object highlighting, and Retroid quick-save, are verified. Full playthrough, later scenes and sustained performance remain untested. Samsung decompresses unsupported BC textures; the Retroid GPU supports them directly. See [Android status and local build steps](docs/ANDROID.md). Generated APKs and game assets remain private. Build with `make doctor PLATFORM=android` and `make port PLATFORM=android` after the [Android tool setup](docs/ANDROID.md#build-requirements). Windows game files are not required.
 
 ## Requirements
 
@@ -61,6 +61,7 @@ make inspect          # Optional real-reference metadata integration check
 | --- | --- |
 | `tools/`, `tools/disco_port/` | Build entry points and inspection/validation modules |
 | `runtime/UnityHost/` | Original iOS, display, memory and controller adapters |
+| `runtime/AndroidHost/`, `apps/android/` | Original Android compatibility layer, touch overlay and diagnostic probe |
 | `runtime/InputCore/`, `apps/ipad/` | Separate touch-input diagnostic, not the game |
 | `tests/` | Synthetic fixtures; no game data |
 | `reference/`, `artifacts/` | Private local inputs and outputs, excluded from Git |

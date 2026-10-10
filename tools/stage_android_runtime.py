@@ -10,6 +10,9 @@ from disco_port.dyld_plan import load_plan
 from disco_port.android_probe import DOT_ADDRESS, DOT_SHA256, checked_leaf
 from disco_port.function_starts import function_starts
 from disco_port.arm64_calls import branch_target, stub_slot
+from disco_port.android_exports import export_sources
+from disco_port.mapped_package import image_package, unwind_package
+from disco_port.arm64_baseline import baseline_image
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -19,26 +22,20 @@ def stage():
     image = MachO((ROOT / 'reference/Disco.app/Contents/Frameworks/GameAssembly.dylib').read_bytes())
     checked_leaf(image, function_starts(image), DOT_ADDRESS, 24, DOT_SHA256)
     plan = load_plan(image)
-    names = sorted(set(b['symbol'] for b in plan['bindings']) | set(plan['exports']))
-    strings = bytearray(); offsets = {}
-    for name in names:
-        offsets[name] = len(strings); strings += name.encode('ascii') + b'\0'
     output = ROOT / 'artifacts/android/runtime'; output.mkdir(parents=True, exist_ok=True)
-    pack = bytearray(struct.pack('<8s6IQ', b'DSCMAP01', len(image.segments), len(plan['rebases']),
-                                len(plan['bindings']), len(plan['exports']), len(plan['initializers']), len(strings), len(image.data)))
-    for s in image.segments:
-        pack += struct.pack('<5Q', s.address, s.virtual_size, s.offset, s.file_size, s.protection)
-    for r in plan['rebases']:
-        pack += struct.pack('<2Q', r['address'], r['target'])
-    for b in plan['bindings']:
-        pack += struct.pack('<QIi qII', b['address'], offsets[b['symbol']], b['ordinal'], b['addend'],
-                            b['flags'], {'bind': 0, 'lazy': 1, 'weak': 2}[b['kind']])
-    for name, address in sorted(plan['exports'].items()):
-        pack += struct.pack('<QII', address, offsets[name], 0)
-    for address in plan['initializers']:
-        pack += struct.pack('<Q', address)
-    pack += strings; pack += image.data
+    translated, instructions=baseline_image(image)
+    if instructions != [(0x1331df0,0xce000c40),(0x1bb9e4c,0xce140400),(0x1cbf490,0xce000c40)]:
+        raise ValueError('Pinned ARM64 baseline instruction inventory changed')
+    pack=image_package(translated,plan)
     (output / 'runtime.map').write_bytes(pack)
+    if any(not image.executable(address) for address in plan['exports'].values()):
+        raise ValueError('Runtime API exports must be executable functions')
+
+    uw=unwind_package(image)
+    (output/'unwind.map').write_bytes(uw)
+    export_asm, export_header = export_sources(plan['exports'])
+    (output/'RuntimeExports.S').write_text(export_asm)
+    (output/'RuntimeExports.h').write_text(export_header)
     # Fail-fast native stubs identify unsupported imports during device execution.
     imports = sorted(set(b['symbol'] for b in plan['bindings']))
     slots = {b['address']: b['symbol'] for b in plan['bindings']}
@@ -61,6 +58,19 @@ def stage():
                 if branch_target(word, at) in setjmp_stubs: jump_calls.append(at)
     if jump_calls != [0x3afaf0]:
         raise ValueError('GC-only register spill callsite assumption changed')
+    plugin_path=ROOT/'reference/Disco.app/Contents/PlugIns/AmplifyTextureNative.bundle/Contents/MacOS/AmplifyTextureNative'
+    plugin_bytes=plugin_path.read_bytes()
+    if hashlib.sha256(plugin_bytes).hexdigest()!='474612e980951feb0f855bf5e57ae86e89d9492f4b61a43b50f58967bddd297e':raise ValueError('Unsupported Amplify input')
+    plugin=MachO(plugin_bytes);plugin_plan=load_plan(plugin)
+    plugin_baseline, plugin_instructions=baseline_image(plugin)
+    if plugin_instructions:raise ValueError('Amplify baseline needs additional validated translations')
+    (output/'amplify.map').write_bytes(image_package(plugin_baseline,plugin_plan))
+    (output/'amplify-unwind.map').write_bytes(unwind_package(plugin))
+    plugin_slots={b['address']:b['symbol'] for b in plugin_plan['bindings']}
+    for section in plugin.sections:
+        if section.name=='__stubs':
+            for address in range(section.address,section.address+section.size,12):callable_names.add(plugin_slots[stub_slot(plugin,address)])
+    imports=sorted(set(imports)|{b['symbol'] for b in plugin_plan['bindings']})
     asm = ['.text', '.p2align 2']
     declarations = []
     for n, name in enumerate(imports):
@@ -83,6 +93,7 @@ def stage():
         '}\n')
     summary = {'scope': 'Mapped runtime startup experiment; unsupported imports trap; no engine or gameplay',
                'source_hashes': hashes, 'map_sha256': hashlib.sha256(pack).hexdigest(),
+               'baseline_eor3_translations': len(instructions),
                'image_bytes': len(image.data), 'virtual_bytes': max(s.address + s.virtual_size for s in image.segments),
                'segments': len(image.segments), 'rebases': len(plan['rebases']),
                'binding_records': len(plan['bindings']), 'binding_slots': len(set(b['address'] for b in plan['bindings'])),

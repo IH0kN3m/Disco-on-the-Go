@@ -13,9 +13,7 @@ def gles_stage(source, stage):
         raise FormatError('Expected paired Unity desktop vertex/fragment source')
     text=re.sub(r'^\s*#version\s+\d+\s*$','',source,flags=re.M)
     text=re.sub(r'^\s*#extension GL_ARB_explicit_attrib_location : require\s*$','',text,flags=re.M)
-    # Standalone uniform locations are desktop-specific. Retain attribute and
-    # fragment-output layouts. Runtime uniform mapping must later be rebuilt.
-    text=re.sub(r'^#define UNITY_LOCATION\(x\).*$', '#define UNITY_LOCATION(x)',text,flags=re.M)
+    # GLES 3.1+ retains the explicit locations used by Unity sampler bindings.
     # GLES 3.2 supplies the precision/420pack features used by these samples.
     text=re.sub(r'^\s*#extension GL_ARB_shading_language_420pack : require\s*$','',text,flags=re.M)
     extensions=re.findall(r'^\s*(#extension[^\n]+)',text,re.M)

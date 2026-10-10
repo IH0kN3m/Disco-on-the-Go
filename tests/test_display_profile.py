@@ -14,6 +14,7 @@ class DisplayProfileTests(unittest.TestCase):
 int main() {
     DiscoDisplay::Profile p;
     assert(DiscoDisplay::TabletProfile(2752,2064,p));
+    assert(DiscoDisplay::NativeAspectMode(p)==3);
     assert(std::fabs(p.referenceWidth/p.referenceHeight-4.0f/3.0f)<0.00001f);
     assert(std::fabs(p.referenceHeight*(2752/p.referenceWidth)-2064)<0.01f);
     assert(DiscoDisplay::TabletProfile(1376,1032,p));
@@ -23,7 +24,13 @@ int main() {
         assert(p.referenceHeight==2048);
         assert(std::fabs(p.referenceWidth/p.referenceHeight-p.aspect)<0.00001f);
     }
-    for (auto dimensions : {std::pair<int,int>{0,2064},{-1,2064},{2064,2752},{1920,1080},{16385,12288},{2147483647,1}}) {
+    for (auto dimensions : {std::pair<int,int>{2960,1848},{1920,1080}}) {
+        assert(DiscoDisplay::TabletProfile(dimensions.first,dimensions.second,p));
+        assert(std::abs(p.referenceWidth/p.referenceHeight-float(dimensions.first)/dimensions.second)<0.00001f);
+        assert(DiscoDisplay::NativeAspectMode(p)==(dimensions.first==2960 ? 2 : 0));
+    }
+    assert(DiscoDisplay::NativeAspectMode({1.45f,0,0})==3);
+    for (auto dimensions : {std::pair<int,int>{0,2064},{-1,2064},{2064,2752},{3440,1440},{16385,12288},{2147483647,1}}) {
         assert(!DiscoDisplay::TabletProfile(dimensions.first,dimensions.second,p));
         assert(p.aspect==0 && p.referenceWidth==0 && p.referenceHeight==0);
     }

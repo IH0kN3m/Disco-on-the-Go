@@ -37,3 +37,5 @@ extern "C" int DiscoVfprintf(FILE* stream,const char* format,const uint8_t* args
 __android_log_print(ANDROID_LOG_INFO,"DiscoRuntime","foreign log: %s",text.c_str());
 #endif
 size_t n=std::fwrite(text.data(),1,text.size(),stream);return n==text.size()?int(n):-1;}
+
+extern "C" int DiscoPrintf(const char* format,const uint8_t* args){return DiscoVfprintf(stdout,format,args);}

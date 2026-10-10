@@ -161,7 +161,13 @@ def exports(image, data):
         stream.at = end
         for _ in range(stream.byte()):
             edge = stream.string(); child = stream.leb()
-            if not edge: raise FormatError('Empty export trie edge')
+            if not edge:
+                # Apple may encode a prefix export in an empty-edge terminal
+                # alongside a longer sibling (e.g. Foo and FooBar).
+                leaf = Stream(data); leaf.at = child
+                if not 0 <= child < len(data): raise FormatError('Empty edge escapes trie')
+                terminal_size = leaf.leb(); leaf.at += terminal_size
+                if not terminal_size or leaf.byte() != 0: raise FormatError('Empty edge must own a terminal leaf')
             pending.append((child, prefix + edge))
     return result
 

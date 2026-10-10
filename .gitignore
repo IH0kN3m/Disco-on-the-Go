@@ -38,6 +38,7 @@ xcuserdata/
 # Android packages, local SDK configuration and signing.
 *.apk
 *.aab
+*.obb
 *.jks
 *.keystore
 .gradle/

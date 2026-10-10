@@ -5,7 +5,9 @@ import struct
 from .binary import FormatError, read_string, unpack
 
 
-def retag_serialized(data):
+def retag_serialized(data, target=9):
+    if target not in (9, 13):
+        raise FormatError("Only iOS and Android loader tags are supported")
     if len(data) < 48 or unpack(data, '>I', 8)[0] != 22:
         raise FormatError('Only serialized file header v22 is supported')
     if data[16:20] != bytes(4):
@@ -23,5 +25,5 @@ def retag_serialized(data):
     if unpack(data, '<i', offset)[0] != 2 or data[offset + 4] not in (0, 1):
         raise FormatError('Expected macOS platform and supported type-tree flag')
     derived = bytearray(data)
-    struct.pack_into('<i', derived, offset, 9)
+    struct.pack_into('<i', derived, offset, target)
     return bytes(derived), offset

@@ -22,7 +22,7 @@ void main(){color=vec4(1);}
             self.assertTrue(result.startswith('#version 320 es\n#define '+stage.upper()))
             self.assertEqual(result.count('#version'),1)
             self.assertNotIn('GL_ARB_explicit_attrib_location',result)
-            self.assertIn('#define UNITY_LOCATION(x)\n',result)
+            self.assertIn('#define UNITY_LOCATION(x) layout(location = x)',result)
             self.assertIn('layout(location=0) out vec4 color;',result)
     def test_rejects_unrecognized_or_unbounded_source(self):
         for source,stage in [('', 'vertex'),('#version 999\n#ifdef VERTEX\n#ifdef FRAGMENT','vertex'),

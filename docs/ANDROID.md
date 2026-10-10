@@ -1,107 +1,128 @@
-# Android port work
+# Android port
 
-Target: Samsung Galaxy Tab S10 Ultra first, with capability-based support for other ARM64 tablets. The iPad pipeline remains separate and working. **The current APK is a diagnostic, not the playable game.**
+Target: Galaxy Tab S10 Ultra, then other ARM64 devices based on measured GPU and memory capabilities. The working iPad pipeline remains separate. This is recovered gameplay, with incomplete device and game-wide validation.
 
-## Verified on the tablet
+## Verified status
 
-9 October 2026, physical SM-X920:
+Physical device results, 10 October 2026:
 
-- ARM64-only Android API 36, 4 KiB process pages, 2960×1848 display.
-- Reported physical memory: 12,085,673,984 bytes (approximately 11.26 GiB). Java's 256 MiB heap class is not a native process memory limit.
-- Mali-G720-Immortalis MC12: Vulkan initialization succeeds; BC1/3/6H/7 sampling is unsupported. ASTC LDR and ETC2 are supported; ASTC 4×4 reports sampling/filter support.
-- The pinned original 24-byte ARM64 `Vector3.Dot` leaf was linked unchanged into an Android ELF library. Three arithmetic cases passed, including `Dot((1,2,3),(4,5,6)) = 32`. No original runtime initialization, object system, exception handling or game logic is implied.
-- An initial 24 shader variants from one shader compiled and linked under GLES. A broader sample has 13 unique pairs across 13 shader objects: 12 link under GLES 3.2 after precision/profile adaptation. The remaining VR-layer sample requires the unsupported `GL_AMD_vertex_shader_layer` extension; it is not silently removed. One oversized shader blob was rejected by the extraction bound. Detailed results are local in `artifacts/android/device/capabilities.json` and `artifacts/android/shaders/report.json`. Shader compilation is not rendered-fidelity verification.
-- Original GLES compute decoding of BC1 RGBA and BC3 passed 2,048 synthetic pixels against the CPU reference, with zero mismatches and no GL error. Each dispatch uses a 4 KiB output buffer. This test also runs in the content-free APK. It establishes block decoding only: BC6H/BC7, texture uploads, residency, filtering, sRGB behavior and rendered fidelity remain pending. No ASTC recompression is used.
+| Device | GPU / memory | Gameplay checked | Remaining checks |
+| --- | --- | --- | --- |
+| Galaxy Tab S10 Ultra | Mali-G720, GLES 3.2, 11.26 GiB reported RAM; no native BC sampling | Menus, loaded Whirling room, outdoor scenes, dialogue, native 16:10 layout and two-finger object outlines confirmed | Controller movement/buttons, background/resume, later scenes |
+| Retroid Pocket 5 | Adreno 650, GLES 3.2, 7.52 GiB reported RAM; BC1/3/6H/7 and R16/RG16 sampling/rendering supported | Menus, opening dialogue and room; quick-save confirmed after ARM64 compatibility fix | Reload, transitions and full controller coverage; latest Mali fix not retested; currently disconnected |
 
-Decoder regression tests cover known RGB/alpha values, both endpoint orders, packed selectors crossing word boundaries, rejected buffers and output guards. A development comparison with `texture2ddecoder 1.0.6` matched 358,720 channels within shared semantics across 8,192 random blocks. That library is not an oracle for BC1 RGBA alpha or reversed-endpoint BC3 RGB; those excluded cases have explicit tests following the [Khronos S3TC specification](https://registry.khronos.org/OpenGL/extensions/EXT/EXT_texture_compression_s3tc.txt). Native GPU rounding and complete image fidelity are not established by these tests.
+- Runtime probes pass managed invocation, exception round trip, full GC, register snapshots and 16 thread suspend/resume cycles. Synthetic BC1/BC3 decode and all eight stencil bits pass the GPU probes.
+- Amplify streaming uses its original CPU decoder, with GLES feedback readback and two caller-scoped framebuffer-origin adaptations. Source textures, meshes and materials retain their bytes; Samsung decompresses unsupported BC textures at runtime.
+- Unsupported R16/RG16 render targets use supported R32/RG32 float storage. Supported targets retain their original formats. Device capability alone does not establish every shader or scene's fidelity.
+- Static asset audit checks 1,953 serialized containers and 202 copied files, retaining original object IDs and all non-adapted object bytes. External shader references are inventoried; complete cross-file scene execution is not proven.
+- All 5,399 unique staged GLES shader pairs compile and link with pinned glslang 16.6.0. macOS video decoding and an excluded desktop VR builtin advertise no supported Android subshader. Game-specific shaders are retained. Reference compilation does not prove driver execution for every variant.
+- Three SHA3 `EOR3` instructions are translated to equivalent baseline SIMD XOR operations in the private Android package. The handheld's repeatable quick-save illegal-instruction crash is fixed and saving is user-confirmed.
 
-## Source choice
+The Android touch overlay has a draggable gamepad icon: tap to show/hide, drag to reposition. It feeds the original InControl controller API and releases inputs on hide, cancellation and focus loss. Two-finger hold feeds the game's Highlight action. Pinch zoom is removed at the user's request. Samsung captures verify icon dragging without toggling and tap-to-show/hide; the native InControl device attaches and detaches without a crash. Two-finger hold and visible object outlines are user-confirmed on Samsung. UI scale is unchanged.
 
-The macOS ARM64 build avoids instruction-set translation and supplies known metadata/assets. It is the current native-port research baseline. Android requires ELF, Bionic/POSIX APIs and Android ABI conventions; changing a Mach-O platform tag, as in the iPad experiment, cannot make it load.
+The GLES bridge copies all eight stencil bits to an integer RenderTexture. On Mali, a GPU callback appended after the original outline color blit performs the palette lookup with the game's current material colors; the original edge effect remains intact. It preserves dimensions and palette values. The content-free Samsung GPU probe verifies all 256 stencil bytes and all 256 palette samples. Other GPU paths retain the original color pass; the latest bridge has not been retested on the disconnected handheld.
 
-Static inspection found 334 imports: 34 Darwin/Objective-C services, 91 C++ ABI/exception imports, 32 thread APIs, 156 names also found in Android's C libraries, and 21 without a name match in the selected API-28 C libraries. Names that match still need signature, structure, flags and error-code review. No `svc` instruction matches were found in the inspected executable sections. This does not prove portability or that every dependency has been identified.
+Frame-rate instrumentation has been removed at the user’s request; performance investigation is deferred.
 
-The supplied Windows GOG installer (`winkay16062026_memfix`, 91668) has now been inspected. Selected files were extracted with innoextract 1.9 without running the installer; all four installer/part hashes were unchanged afterward. The installer inventory contains no managed game assembly set. All 24 extracted executable/plugin files are native PE, including x64 `GameAssembly.dll` and `UnityPlayer.dll`; this is another IL2CPP build, not a C# rebuild shortcut.
+Complete playthrough, all later scenes, import coverage, sustained memory/performance and suspend/resume remain unresolved. Static checks cannot guarantee absence of future glitches.
 
-Its serialized data identifies Unity 2020.3.12f1. The four inspected root containers contain 78 shaders with platform IDs 4/15 (Direct3D 11/OpenGL Core), with no Android variants. All 78 match a Mac shader by container/name and have identical compressed OpenGL segment payloads. This comparison does not cover every addressable bundle or establish material/render equivalence.
+## Reproduction checked
 
-Windows metadata v27 contains 16,187 types and 112,430 method records versus Mac's 14,861/102,219. There are 102,083 shared method labels when matching assembly, qualified name and parameter count; this is not a code-equivalence check. Windows includes additional desktop frameworks, and even Assembly-CSharp type counts differ (2,814 versus 2,812). Do not mix metadata, native registrations or offsets between the builds.
+On 10 October 2026, `make port PLATFORM=android` completed all four steps from the Mac reference, replacing the generated asset trees and compiling the APK/OBB. The complete reference bundle was unchanged. The asset audit passed for 1,953 serialized containers and 202 copied files; all 5,399 shader pairs compiled/linked with no errors. The source tests passed: 129 Python tests and four Swift input tests. The public-source and reachable-history audit had no findings.
 
-**Decision:** retain the Mac ARM64 runtime and matching data as the native Android baseline. The inspected Windows build offers neither managed game IL nor new OpenGL shader payloads, and reusing its native code adds x64 translation. Keep Windows as a separate comparison input. The next runtime gate is an Android-compatible replacement for the Mac loader/runtime ABI, not another asset conversion.
+This run reused installed licensed Unity, SDKs and the pinned Python environment. It does not establish first-time Unity activation on another Mac or a fresh-device installation. The final capture-removal rebuild was compiled and audited; the previously installed outline fix remains the user-confirmed device baseline. The iPad pipeline's default plan and tool checks remain intact.
 
-## Remaining engineering gates
+## Inputs and source choice
 
-1. **Runtime:** original ARM64 IL2CPP startup, metadata invocation and one full garbage collection now pass on the target tablet. Complete C++ exception/unwind compatibility, remaining services, sustained collector tests and Unity Android integration are still required. Startup success does not cover arbitrary game execution.
-2. **Shaders:** the first 79 sampled objects contain Metal and OpenGL Core platform IDs, not GLES/Vulkan. Readable GLCore source is available. The current conversion experiment preserves arithmetic but changes the shader-language profile, precision defaults and desktop uniform-location declarations. Unity bindings, keyword variants, render state and visual correctness remain to be rebuilt/verified; unsupported features must fail explicitly.
-3. **Textures:** the iPad's native BC path cannot run on this GPU. The BC1/BC3 GPU block experiment above is the first step toward decoded textures with bounded residency. The other formats and Unity integration remain unresolved. BC→ASTC encoding introduces another lossy compression step; it is not a zero-loss substitute and is not selected automatically.
-4. **Game integration:** original data paths, Amplify CPU codecs, streaming, Android lifecycle, touch/controller input, saves and full scene transitions. The existing iPad work supplies evidence and original adapters, not a ready Android binary.
-5. **Packaging:** the current APK is small; full-game packaging/data installation is not implemented. Do not promise that all desktop assets fit inside one APK or that a successful Android compile is gameplay.
+Use the immutable local `reference/Disco.app` and its matching ARM64 native code, metadata and assets. Supplied binaries are inspected statically on the Mac and executed only inside the locally built Android app on the authorized device.
 
-## Mapped ARM64 runtime checkpoint
+The supplied Windows GOG installer is retained under `reference/disco-win/`. Selected files were extracted into artifacts without executing the installer. It also contains native IL2CPP, not rebuildable managed game assemblies. The inspected Windows shaders provide the same OpenGL payloads as the Mac baseline. Its metadata and native registrations differ; do not mix the two builds.
 
-Verified on the physical SM-X920 on 10 October 2026:
+The Android provider maps the pinned Mach-O image, checks offsets/ownership, applies validated instruction translations, rebases/import adapters and seals code RX after writable staging. Unsupported functions stop with a named diagnostic; unsupported data is inaccessible. This is a game-specific compatibility layer, not a general Mach-O loader. Remaining imports, shutdown and arbitrary game execution require further testing.
 
-- Four original image segments mapped across 49,086,464 virtual bytes, with zero-filled BSS and original segment protections. Staging is writable, then executable segments become RX; no RWX mapping is used.
-- All 320,805 classic-dyld pointer rebases applied. Static locations/targets independently match Apple's `dyld_info -fixups` output exactly, including two tagged RTTI pointers. The mapper verifies original pointer values and executable-byte equality.
-- Parsed 243 exports, 364 binding slots and 10 initializers. Bind records include five weak replacements; identical duplicate bind operations are collapsed. Unsupported layouts fail explicitly.
-- All ten original initializers complete. `il2cpp_init` reads the supplied matching metadata and returns success. Domain/assembly/class/method lookup finds `UnityEngine.Vector3.Dot`; original `il2cpp_runtime_invoke` returns a boxed float that unboxes to 32. This exercises the metadata/object runtime, beyond calling a pinned arithmetic address.
-- Original `il2cpp_gc_collect(2)` returns. A separate synthetic thread check performs 16 suspend/register-capture/resume cycles, rejects undersized output and token release while suspended, and checks that the worker stops making progress while parked. This is not a sustained multithreaded GC or game-lifecycle test.
-- 157 distinct import symbols resolve through explicit adapters (166 binding records). **177 remain unsupported**, including exception/unwind, portions of libc++ and Apple services. Unsupported function calls abort with their symbol/caller offset; unresolved data symbols point into inaccessible guard pages. They never masquerade as successful operations or readable C++ objects.
-- Original allocator and timebase checks still pass. Executable bytes remain unchanged; adapters live in the original Android host.
+## Build requirements
 
-The offline startup traversal finds 887 direct-reachable functions, 119 imports and 203 indirect sites. It is an audit aid, not complete coverage. `make inspect-android-initializers` regenerates both initializer and boot reports without executing supplied binaries on the Mac.
+- Apple silicon Mac (tested host), Python 3.11+, and Rosetta on Apple silicon for the Intel Unity editor.
+- Your compatible game at `reference/Disco.app`. Exact native-module/metadata fingerprints are checked; see [input requirements](BUILD.md#game-input). No Windows files, scene recovery, decompiler or recovered Unity project are needed.
+- Licensed Unity 2020.3.12f1 and its exact Android player module.
+- JDK 17, Android SDK Command-line Tools, accepted SDK licenses, and at least 60 GiB free after tool installation. `ANDROID_HOME` selects the SDK; its default is `$HOME/Library/Android/sdk`.
 
-The bridge owns native mutex/condition/RW-lock objects in address-keyed tables rather than overwriting Darwin storage. It handles Darwin TLS keys, semaphores, static guards, thread attributes, selected file/stat/mapping/locale/system queries, stack-based variadic arguments and Apple's 24-byte alternate string layout. ARM64 constructors/destructors must return the original object pointer: omitting that return corrupted a vector during array-metadata setup; a regression test now checks this contract.
-
-The collector bridge suspends only registered threads in this process through a reserved signal and futex handshake. Token release waits for a completed resume. The `_setjmp` adapter only spills registers for the pinned collector callsite; staging rejects changed callsites or a longjmp import. It does not implement general nonlocal jumps. Cancellation state is bookkeeping only: this source imports no cancellation request API. Darwin/Bionic error-code coverage is incomplete.
-
-The mapped image, metadata and registered callbacks are retained for the diagnostic process lifetime. Shutdown/finalization, exception propagation through mapped frames, additional library roots, repeated host initialization and Android lifecycle integration remain unverified. Do not use this diagnostic as a general-purpose Mach-O loader.
+Install JDK 17 and the SDK Command-line Tools separately, set `JAVA_HOME` to JDK 17, and use `sdkmanager` from that SDK:
 
 ```sh
-make inspect-android-initializers
-make build-android-runtime-probe
+sdkmanager --licenses
+sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;27.2.12479018"
+make setup-scenes
+make setup-unity
+make setup-unity-android
+make setup-android-legacy
+```
+
+Setup downloads official archives separately from the game build. Legacy export tools are checksum-pinned: SDK tools 26.1.1, platform 30, build-tools 30.0.2, NDK r19 and JDK 8. The legacy setup copies platform-tools and accepted licenses from `ANDROID_HOME`. Unity licensing must already work; setup does not activate a license. `make setup-unity` also stages iOS support for the shared editor.
+
+`DISCO_ANDROID_SDK`, `DISCO_ANDROID_NDK` and `DISCO_ANDROID_JDK` override Unity export paths. APK assembly uses JDK 17, SDK 36 and NDK 27.2.12479018 directly, without Gradle/Maven downloads.
+
+## Build locally
+
+```sh
+make doctor PLATFORM=android
+make port PLATFORM=android
+```
+
+The default `make port` still builds iPad. Android exports an empty Unity host, derives assets directly from the immutable Mac app, audits object preservation, compiles the compatibility provider and assembles a locally signed APK. It creates a private development key on first build and reuses it for updates. Keep that key and the application identifier consistent to retain update/save compatibility. The build does not contact a device or download tools.
+
+Asset preparation replaces only its disposable generated data trees, retags 76 serialized files and 1,877 UnityFS containers, retains scene IDs, adapts Android settings and rebuilds GLES shader payloads from supplied GLCore variants. Unsupported game shader features fail explicitly. Texture dimensions and source bytes are retained. Packaging checks the complete derived inventory for missing, extra or changed files. Source bundle hashes before and after the pipeline must match.
+
+| Private output | Purpose |
+| --- | --- |
+| `artifacts/android/build-game/disco-android.apk` | Runtime, metadata and first-install managed resources |
+| `artifacts/android/build-game/main.1.org.discoport.androidgame.obb` | Core Unity data |
+| `artifacts/android/game-data/external/GameFiles/` | Streaming and Amplify assets |
+| `artifacts/reproducibility/<timestamp>/` | Tool versions, input fingerprints, per-step logs and product hashes |
+| `artifacts/android/signing/` | Local development key; never publish |
+
+The APK alone is not the complete game. All three payloads are required. Native-only iteration can use `make build-android-game` and reuse an unchanged OBB. Build timestamps, paths and local signing mean output is not promised to be byte-identical. A rebuild does not establish device execution.
+
+## Install
+
+Enable Android debugging and authorize the Mac over USB or paired Wi-Fi. Put your selection in ignored `artifacts/local-android.json`:
+
+```json
+{"device_identifier": "YOUR-ADB-DEVICE-SELECTION"}
+```
+
+```sh
+make deploy-android-game
+```
+
+Deployment installs the APK/OBB first, uploads streaming assets, then launches. APK/OBB hashes are verified; streaming uses ADB sync. Initial transfer is large. Updates restart the game: save first. Uninstalling removes app saves. APK/native libraries are aligned for 16 KiB pages; only 4 KiB device execution has been tested.
+
+For a different tablet, create its own ignored selection and reports. Run the content-free GPU/capability probe before claiming support; ARM64, GLES 3.2 and required CPU/GPU features are checked by the runtime, and adequate memory/storage still need device testing. Model names alone do not establish compatibility.
+
+```sh
+python3 tools/deploy_android_game.py --config artifacts/local-android-other.json --output artifacts/android/other-device --install-only
+python3 tools/upload_android_assets.py --config artifacts/local-android-other.json --log artifacts/android/other-upload.log
+python3 tools/deploy_android_game.py --config artifacts/local-android-other.json --output artifacts/android/other-device --launch-only
+```
+
+Keep reports private. Process survival is not proof of gameplay; check runtime logs and rendered output.
+
+## Diagnostics and checks
+
+```sh
+make test
+make inspect
+make audit-release
+make build-android-probe          # Content-free GPU/capability checks
+make deploy-android-probe
+make build-android-runtime-probe  # Private original-runtime checks
 make deploy-android-runtime-probe
+make inspect-android-runtime     # Static input audit
+make inspect-android-initializers
+make setup-glslang               # Pinned reference shader compiler
+make audit-android               # All staged asset and shader checks
 ```
 
-The build stages the hash-checked image and binary load plan into `artifacts/android/runtime/`, packages them into `artifacts/android/build-mapped-runtime/disco-android-probe.apk`, and runs them only on the selected Android device. This APK contains supplied game code and stays private. CPU-side malformed-input tests map synthetic non-executable fixtures only; supplied binaries are never loaded on the Mac.
+Keep recovered code, shaders, native images, metadata, assets, device identifiers, signing keys and unreviewed logs out of Git and public releases. Publish original tooling only after source/history audit and authorship review; locally generated game APKs and OBBs must not be distributed with the repository.
 
-Source layout: `tools/disco_port/dyld_plan.py` validates classic dyld streams; `tools/disco_port/arm64_calls.py` audits direct initializer dependencies; `runtime/AndroidHost/MappedImage.h` owns mapping and relocation; `DarwinBridge`, `DarwinString`, `DarwinSystem`, `DarwinVarargs`, `DarwinThreads` and `DarwinABI.S` implement original, limited ABI adapters; `RuntimeProbe.cpp` drives the startup and device checks. The shared regression suite passes 89 Python and 4 Swift tests. `make inspect` and the source/history leak audit pass. Synthetic host tests cover opaque-storage guards, held-lock destruction, timeouts, TLS isolation, string ownership/constructor returns, sysctl buffer bounds and malformed variadic formats. Supplied native binaries are never executed on the Mac.
-
-## Reproduce the diagnostic
-
-Installed prerequisites: macOS, JDK 17, Android SDK platform 36, build-tools 36.0.0, NDK 27.2.12479018 and platform-tools/ADB. The build uses SDK tools directly and needs no Gradle/Maven download. `--sdk` and `--java-home` override local discovery. Native libraries and the APK are aligned for 16 KiB pages, although the tested tablet currently uses 4 KiB.
-
-```sh
-make build-android-probe           # Original capability host, no supplied game content
-make deploy-android-probe          # Includes the synthetic BC1/BC3 compute test
-make build-android-cpu-probe       # Adds the local, hash-checked original arithmetic leaf
-make inspect-android-runtime      # Static import/dependency report, no native execution on Mac
-make inspect-android-shaders      # Bounded local shader sample extraction
-python3 tools/build_android.py --with-original-kernel --with-shader-samples
-make deploy-android-cpu-probe      # Installs that local CPU-probe APK and retrieves its report
-```
-
-The exact Unity 2020.3.12f1 Android module has also been downloaded, hash-verified and installed alongside the local iOS module. Reproduce with `python3 tools/setup_unity_android.py`; it extracts the official package without executing installer scripts. This does not yet establish a working Unity Android export or game runtime.
-
-For the supplied GOG Windows build, install `innoextract` (tested Homebrew 1.9), then:
-
-```sh
-python3 tools/extract_windows_probe.py reference/disco-win
-python3 tools/inspect_windows_input.py artifacts/android/windows-extracted
-.venv/bin/python tools/compare_windows_input.py
-```
-
-The extractor selects only inspection files, records source hashes before/after, and refuses to overwrite an extraction belonging to different inputs. Keep the setup EXE and all BIN parts together. `--include` paths are literal paths/directories, not shell globs. An already extracted game can be passed directly to `inspect_windows_input.py`; its PE/CLI reader checks owned IL body ranges and counts trivial/placeholder-like bodies separately. None of these tools loads a supplied executable. Comparison outputs and installer inventories stay under `artifacts/android/`.
-
-Enable USB debugging and authorize the Mac. Initial discovery accepts one authorized physical ARM64 Tab S10 Ultra. To select another intended tablet or disambiguate multiple devices, create `artifacts/local-android.json` with a `device_identifier` field. Device selection and actual CPU/OS checks precede installation; compatibility is established by the runtime report, not model-name acceptance.
-
-Outputs:
-
-- `artifacts/android/build-capabilities/disco-android-probe.apk`: original capability diagnostic.
-- `artifacts/android/build-original-leaf/disco-android-probe.apk`: local original-leaf test, optionally including private shader samples.
-- `artifacts/android/device/capabilities.json`: measured report, retrieved via `run-as` from the debuggable app.
-- `artifacts/android/signing/`: local development keystore; retain it for updates and never commit it.
-
-Packages containing the original leaf or recovered shaders are private derived game products and must not be published. Generated shaders, code bytes, import lists, device identities and signing material stay under ignored artifacts. The reference app remains immutable and is never loaded as native code on the Mac.
-
-References: [Android ABIs](https://developer.android.com/ndk/guides/abis), [Apple ARM64 conventions](https://developer.apple.com/documentation/xcode/writing-arm64-code-for-apple-platforms), [Android 16 KiB pages](https://developer.android.com/guide/practices/page-sizes), [Unity 2020 shader platform enum](https://github.com/Unity-Technologies/UnityCsReference/blob/2020.3/Editor/Mono/Graphics/ShaderCompilerData.cs).
+ABI references: [Android ARM64](https://developer.android.com/ndk/guides/abis), [Apple ARM64](https://developer.apple.com/documentation/xcode/writing-arm64-code-for-apple-platforms). Graphics references: [S3TC](https://registry.khronos.org/OpenGL/extensions/EXT/EXT_texture_compression_s3tc.txt), [GLES 3.1 uniform locations](https://registry.khronos.org/OpenGL/specs/es/3.1/GLSL_ES_Specification_3.10.pdf), [Unity shader platform IDs](https://github.com/Unity-Technologies/UnityCsReference/blob/2020.3/Editor/Mono/Graphics/ShaderCompilerData.cs), [Android page sizes](https://developer.android.com/guide/practices/page-sizes).

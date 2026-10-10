@@ -6,8 +6,22 @@
 #include <string>
 #include <vector>
 #include "SceneLoadPolicy.h"
+#include <cstdarg>
+#ifdef __ANDROID__
+#include <android/log.h>
+#endif
 
 namespace DiscoSceneResidency {
+static void Log(const char* format,...) {
+    va_list arguments;va_start(arguments,format);
+#ifdef __ANDROID__
+    __android_log_vprint(ANDROID_LOG_INFO,"DiscoScenes",format,arguments);
+#else
+    vprintf(format,arguments);
+#endif
+    va_end(arguments);
+}
+
 static_assert(offsetof(Il2CppClass, vtable) == 0x138, "Pinned IL2CPP class layout changed");
 static_assert(offsetof(MethodInfo, methodPointer) == 0, "Pinned method layout changed");
 static_assert(offsetof(Il2CppArraySize, vector) == 0x20, "Pinned array layout changed");
@@ -20,7 +34,7 @@ static const MethodInfo *loadAsync, *preloadMethod, *transitionMethod;
 static uint32_t preloadSkipHandle, pendingCoroutine, pendingOperation;
 
 [[noreturn]] static void Fail(const char* message) {
-    printf("NATIVE RESIDENCY: unsupported integration: %s\n", message);
+    Log("NATIVE RESIDENCY: unsupported integration: %s\n", message);
     fflush(stdout); abort();
 }
 static Il2CppClass* Class(const char* assemblyName, const char* space, const char* name) {
@@ -49,10 +63,14 @@ static Il2CppObject* Fast() {
 static std::string Text(Il2CppString* string) {
     if (!string || il2cpp_string_length(string) < 0 || il2cpp_string_length(string) > 4096)
         Fail("invalid scene string");
+#ifdef __ANDROID__
+    return DiscoAndroidSceneText(string);
+#else
     NSString* text = [NSString stringWithCharacters:(const unichar*)il2cpp_string_chars(string)
         length:il2cpp_string_length(string)];
     if (!text || !text.UTF8String) Fail("scene name encoding");
     return text.UTF8String;
+#endif
 }
 static Il2CppObject* Call(const MethodInfo* method, void* owner, void** args) {
     if (!method) Fail("missing managed method");
@@ -61,7 +79,7 @@ static Il2CppObject* Call(const MethodInfo* method, void* owner, void** args) {
     if (exception) {
         char detail[2048] = {};
         il2cpp_format_exception(exception, detail, sizeof(detail));
-        printf("NATIVE RESIDENCY: method=%s exception=%s\n", il2cpp_method_get_name(method), detail);
+        Log("NATIVE RESIDENCY: method=%s exception=%s\n", il2cpp_method_get_name(method), detail);
         Fail("managed call failed");
     }
     return result;
@@ -111,7 +129,7 @@ static void PreparePreloadSkip(Il2CppObject* owner) {
     if (!DiscoScenePolicy::Plan(paths, originalNames, plan, error)) Fail(error.c_str());
     // Keep the original first Single-mode load to clear startup scenes while
     // preserving the game's DontDestroyOnLoad bootstrap objects.
-    printf("NATIVE RESIDENCY: bootstrap scene=%s\n", plan.bootstrap.c_str());
+    Log("NATIVE RESIDENCY: bootstrap scene=%s\n", plan.bootstrap.c_str());
     const auto& skipped = plan.deferred;
     Il2CppClass* strings = Class("mscorlib.dll", "System", "String");
     Il2CppArraySize* array = (Il2CppArraySize*)il2cpp_array_new(strings, skipped.size());
@@ -119,10 +137,14 @@ static void PreparePreloadSkip(Il2CppObject* owner) {
     preloadSkipHandle = il2cpp_gchandle_new((Il2CppObject*)array, false);
     for (size_t i = 0; i < skipped.size(); ++i)
         il2cpp_gc_wbarrier_set_field((Il2CppObject*)array, &array->vector[i], il2cpp_string_new(skipped[i].c_str()));
-    printf("NATIVE RESIDENCY: deferring %zu build scenes; original textures unchanged\n", skipped.size());
+    Log("NATIVE RESIDENCY: deferring %zu build scenes; original textures unchanged\n", skipped.size());
 }
 static bool Preload(Il2CppObject* coroutine, const MethodInfo* method) {
+#ifdef __ANDROID__
+    if (!DiscoAndroidUnityThread()) Fail("preload is not on Unity thread");
+#else
     if (![NSThread isMainThread]) Fail("preload is not on Unity thread");
+#endif
     Il2CppObject* owner = Read(coroutine, preloadOwner);
     if (!preloadSkipHandle) PreparePreloadSkip(owner);
     Il2CppObject* saved = Read(owner, skipField);
@@ -131,11 +153,15 @@ static bool Preload(Il2CppObject* coroutine, const MethodInfo* method) {
     bool running = preloadOriginal(coroutine, method);
     il2cpp_field_set_value_object(owner, skipField, il2cpp_gchandle_get_target(savedHandle));
     il2cpp_gchandle_free(savedHandle);
-    if (!running) printf("NATIVE RESIDENCY: original bootstrap coroutine finished\n");
+    if (!running) Log("NATIVE RESIDENCY: original bootstrap coroutine finished\n");
     return running;
 }
 static bool Transition(Il2CppObject* coroutine, const MethodInfo* method) {
+#ifdef __ANDROID__
+    if (!DiscoAndroidUnityThread()) Fail("transition is not on Unity thread");
+#else
     if (![NSThread isMainThread]) Fail("transition is not on Unity thread");
+#endif
     int state = -1;
     il2cpp_field_get_value(coroutine, transitionState, &state);
     if (state != 0) return transitionOriginal(coroutine, method);
@@ -155,7 +181,7 @@ static bool Transition(Il2CppObject* coroutine, const MethodInfo* method) {
         if (!operation) Fail("scene operation absent");
         pendingCoroutine = il2cpp_gchandle_new(coroutine, false);
         pendingOperation = il2cpp_gchandle_new(operation, false);
-        printf("NATIVE RESIDENCY: demand load=%s\n", text.c_str());
+        Log("NATIVE RESIDENCY: demand load=%s\n", text.c_str());
     }
     if (il2cpp_gchandle_get_target(pendingCoroutine) != coroutine) Fail("overlapping scene transitions");
     Il2CppObject* operation = il2cpp_gchandle_get_target(pendingOperation);
@@ -180,7 +206,7 @@ static bool Transition(Il2CppObject* coroutine, const MethodInfo* method) {
     il2cpp_field_set_value_object(coroutine, transitionCurrent, nullptr);
     il2cpp_gchandle_free(pendingOperation); pendingOperation = 0;
     il2cpp_gchandle_free(pendingCoroutine); pendingCoroutine = 0;
-    printf("NATIVE RESIDENCY: cached demand scene=%s handle=%d\n", text.c_str(), handle);
+    Log("NATIVE RESIDENCY: cached demand scene=%s handle=%d\n", text.c_str(), handle);
     return transitionOriginal(coroutine, method);
 }
 static Il2CppClass* Nested(Il2CppClass* parent, const char* name) {
@@ -192,10 +218,14 @@ static Il2CppClass* Nested(Il2CppClass* parent, const char* name) {
 static const MethodInfo* ValidateHook(Il2CppClass* klass, uintptr_t offset) {
     il2cpp_runtime_class_init(klass);
     const MethodInfo* method = il2cpp_class_get_method_from_name(klass, "MoveNext", 0);
+#ifdef __ANDROID__
+    if (!method || !method->methodPointer || !DiscoAndroidOwnsMethod((void*)method->methodPointer,offset) ||
+#else
     Dl_info image = {};
     if (!method || !method->methodPointer || !dladdr((void*)method->methodPointer, &image) ||
         !image.dli_fname || !strstr(image.dli_fname, "/GameAssembly.framework/GameAssembly") ||
         (uintptr_t)method->methodPointer - (uintptr_t)image.dli_fbase != offset ||
+#endif
         method->parameters_count != 0 || il2cpp_type_get_type(method->return_type) != IL2CPP_TYPE_BOOLEAN ||
         method->slot >= klass->vtable_count || klass->vtable_count > 64 ||
         klass->vtable[method->slot].methodPtr != method->methodPointer)
@@ -213,7 +243,11 @@ static void InstallHook(Il2CppClass* klass, const MethodInfo* method, MoveNext r
 }
 static void Install() {
     const char* enabled = getenv("DISCO_LAZY_SCENES");
+#ifdef __ANDROID__
+    bool selected = enabled ? !strcmp(enabled, "1") : true;
+#else
     bool selected = enabled ? !strcmp(enabled, "1") : [[NSBundle.mainBundle objectForInfoDictionaryKey:@"DiscoLazyScenes"] boolValue];
+#endif
     if (!selected) return;
     fastClass = Class("Assembly-CSharp.dll", "", "FastLoadManager");
     Il2CppClass* transitions = Class("Assembly-CSharp.dll", "FortressOccident", "SceneTransitionManager");
@@ -247,6 +281,6 @@ static void Install() {
     transitionMethod = ValidateHook(transition, 0x2337a48);
     InstallHook(preload, preloadMethod, Preload, &preloadOriginal);
     InstallHook(transition, transitionMethod, Transition, &transitionOriginal);
-    printf("NATIVE RESIDENCY: validated coroutine adapters installed; eviction is not enabled\n");
+    Log("NATIVE RESIDENCY: validated coroutine adapters installed; eviction is not enabled\n");
 }
 }

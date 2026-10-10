@@ -1,4 +1,5 @@
 PYTHON ?= python3
+PLATFORM ?= ipad
 BUNDLE ?= reference/Disco.app
 SCENE_PYTHON ?= .venv/bin/python
 XCODE_PROJECT := apps/ipad/DiscoPort.xcodeproj
@@ -112,10 +113,10 @@ deploy-ipad:
 .PHONY: doctor port audit-release stage-engine-host
 
 doctor:
-	$(PYTHON) tools/port.py doctor
+	$(PYTHON) tools/port.py doctor --platform $(PLATFORM)
 
 port:
-	$(PYTHON) tools/port.py build
+	$(PYTHON) tools/port.py build --platform $(PLATFORM)
 
 stage-engine-host:
 	$(PYTHON) tools/stage_engine_host.py
@@ -156,3 +157,31 @@ deploy-android-runtime-probe:
 
 inspect-android-initializers:
 	$(PYTHON) tools/inspect_android_initializers.py
+
+.PHONY: prepare-android-assets build-android-game deploy-android-game
+prepare-android-assets:
+	$(SCENE_PYTHON) tools/prepare_android_assets.py
+
+build-android-game:
+	$(PYTHON) tools/build_android_game.py --game-data --obb
+
+deploy-android-game:
+	$(PYTHON) tools/deploy_android_game.py --install-only
+	$(PYTHON) tools/upload_android_assets.py
+	$(PYTHON) tools/deploy_android_game.py --launch-only
+
+.PHONY: setup-android-legacy
+setup-android-legacy:
+	$(PYTHON) tools/setup_android_legacy.py
+
+.PHONY: setup-glslang audit-android-assets audit-android-shaders audit-android
+setup-glslang:
+	$(PYTHON) tools/setup_glslang.py
+
+audit-android-assets:
+	$(SCENE_PYTHON) tools/audit_android_assets.py
+
+audit-android-shaders:
+	$(SCENE_PYTHON) tools/audit_android_shaders.py
+
+audit-android: audit-android-assets audit-android-shaders

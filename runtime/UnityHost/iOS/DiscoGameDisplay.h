@@ -5,21 +5,34 @@ namespace DiscoGameDisplay {
 using namespace DiscoSceneResidency;
 static const MethodInfo* Method(Il2CppClass* klass, const char* name, int count, uintptr_t address, bool isStatic = true) {
     const MethodInfo* method = il2cpp_class_get_method_from_name(klass, name, count);
+#ifdef __ANDROID__
+    if (!method || bool(method->flags & 0x10) != isStatic || !DiscoAndroidOwnsMethod((void*)method->methodPointer,address))
+        Fail("game display method differs from inspected reference");
+#else
     Dl_info image = {};
     if (!method || bool(method->flags & 0x10) != isStatic || !dladdr((void*)method->methodPointer, &image) ||
         !image.dli_fname || !strstr(image.dli_fname, "/GameAssembly.framework/GameAssembly") ||
         (uintptr_t)method->methodPointer - (uintptr_t)image.dli_fbase != address)
         Fail("game display method differs from inspected reference");
+#endif
     return method;
 }
 static void Refresh() {
+#ifdef __ANDROID__
+    if (!DiscoAndroidUnityThread()) Fail("display refresh is not on Unity thread");
+#else
     if (![[NSBundle.mainBundle objectForInfoDictionaryKey:@"DiscoFillViewport"] boolValue]) return;
     if (![NSThread isMainThread]) Fail("display refresh is not on Unity thread");
+#endif
     Il2CppClass* screen = DiscoSceneResidency::Class("UnityEngine.CoreModule.dll", "UnityEngine", "Screen");
     int width = Integer(Call(screen, "get_width", 0, nullptr, nullptr));
     int height = Integer(Call(screen, "get_height", 0, nullptr, nullptr));
     DiscoDisplay::Profile profile;
     if (!DiscoDisplay::TabletProfile(width, height, profile)) return; // Rotation still in progress.
+    int aspectMode = 3;
+#ifdef __ANDROID__
+    aspectMode = DiscoDisplay::NativeAspectMode(profile);
+#endif
     Il2CppClass* aspect = DiscoSceneResidency::Class("Assembly-CSharp.dll", "", "AspectUtility");
     il2cpp_runtime_class_init(aspect);
     FieldInfo* singletonField = Field(aspect, "singleton", 0x10);
@@ -32,16 +45,26 @@ static void Refresh() {
     int count = Integer(Call(scenes, "get_sceneCount", 0, nullptr, nullptr));
     int active = Integer(Call(scenes, "GetActiveScene", 0, nullptr, nullptr));
     static int previousWidth = 0, previousHeight = 0, previousCount = -1, previousActive = 0;
-    if (current == 3 && width == previousWidth && height == previousHeight && count == previousCount && active == previousActive) return;
+    if (current == aspectMode && width == previousWidth && height == previousHeight && count == previousCount && active == previousActive) return;
     FieldInfo* wanted = Field(aspect, "wantedAspectRatio", 4);
     if (!(il2cpp_field_get_flags(wanted) & 0x10) || il2cpp_type_get_type(il2cpp_field_get_type(wanted)) != IL2CPP_TYPE_R4)
         Fail("display ratio field ABI");
     // The original camera helper handles modes 0..2 explicitly. Its 4:3 path
     // retains wantedAspectRatio, so set the validated ratio before invoking it.
     il2cpp_field_static_set_value(wanted, &profile.aspect);
-    int fourByThree = 3, horizontalBars = 0;
-    void* args[] = { &fourByThree, &horizontalBars };
+    int horizontalBars = 0;
+    void* args[] = { &aspectMode, &horizontalBars };
     Call(Method(aspect, "UpdateAspectRatio", 2, 0x71ac78), nullptr, args);
+#ifdef __ANDROID__
+    if (aspectMode != 3) {
+        auto* global = DiscoSceneResidency::Class("Assembly-CSharp.dll", "", "GlobalUIFitter");
+        void* globalArgs[] = { &aspectMode };
+        Call(Method(global, "RefreshAspect", 1, 0x21f8028), nullptr, globalArgs);
+        previousWidth=width; previousHeight=height; previousCount=count; previousActive=active;
+        Log("NATIVE DISPLAY: original layout mode=%d viewport=%dx%d scene=%d\n", aspectMode,width,height,active);
+        return;
+    }
+#endif
     Il2CppClass* fitters = DiscoSceneResidency::Class("Assembly-CSharp.dll", "", "AspectRatioFitterUtility");
     // The game's preset installs a fixed 4:3 fitter. Override it for the
     // actual tablet aspect without changing the existing reference height.
@@ -68,6 +91,6 @@ static void Refresh() {
         }
     }
     previousWidth=width; previousHeight=height; previousCount=count; previousActive=active;
-    printf("NATIVE DISPLAY: game tablet profile=%dx%d reference=%.1fx%.1f scene=%d\n", width,height,reference.x,reference.y,active);
+    Log("NATIVE DISPLAY: game tablet profile=%dx%d reference=%.1fx%.1f scene=%d\n", width,height,reference.x,reference.y,active);
 }
 }

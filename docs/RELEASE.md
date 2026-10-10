@@ -4,7 +4,7 @@
 
 Publish only this repository's original tooling, adapters, synthetic tests and documentation under MIT. Users must provide their own compatible game and separately licensed build tools.
 
-Do not publish the game, extracted/recovered code or assets, generated C++/method dumps, patched Unity objects, derived frameworks, compiled apps/IPAs, asset manifests, screenshots, toolchain archives, device logs, identifiers, profiles or signing material. These belong under ignored `artifacts/` or `reference/`. The source audit rejects files outside an explicit allowlist and scans every reachable Git tree, not just the current checkout.
+Do not publish the game, extracted/recovered code or assets, generated C++/method dumps, patched Unity objects, derived frameworks, compiled apps/IPAs/APKs/OBBs, asset manifests, screenshots, toolchain archives, device logs, identifiers, profiles or signing material. These belong under ignored `artifacts/` or `reference/`. The source audit rejects files outside an explicit allowlist and scans every reachable Git tree, not just the current checkout.
 
 Offsets, hashes and small interface descriptions used by the original adapters document interoperability assumptions. The automated audit cannot prove authorship or decide whether a particular reverse-engineering/adaptation/distribution use is permitted.
 
@@ -23,6 +23,8 @@ make test
 make audit-release
 make doctor
 make port
+make doctor PLATFORM=android
+make port PLATFORM=android
 ```
 
 The first two require no game. Public CI runs only those source checks; it receives no game, Unity license, developer credentials or device artifacts. Do not upload build logs as public CI artifacts.

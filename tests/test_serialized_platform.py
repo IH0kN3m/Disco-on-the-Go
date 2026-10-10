@@ -24,6 +24,12 @@ class SerializedPlatformTests(unittest.TestCase):
         self.assertEqual(output[:offset], data[:offset])
         self.assertEqual(output[offset + 4:], data[offset + 4:])
 
+    def test_android_and_unsupported_targets(self):
+        data=fixture();output,offset=retag_serialized(data,13)
+        self.assertEqual(struct.unpack_from("<i",output,offset)[0],13)
+        self.assertEqual(output[offset+4:],data[offset+4:])
+        with self.assertRaises(FormatError):retag_serialized(data,42)
+
     def test_metadata_bounds_size_and_version(self):
         for location, fmt, value in ((8, '>I', 21), (20, '>I', 1000), (20, '>I', 14),
                                      (24, '>Q', 127), (32, '>Q', 64), (40, '>Q', 1),

@@ -59,7 +59,7 @@ def build(sdk, java, original=False, shaders=False, mapped=False):
     run([compiler,'-std=c++17','-O2','-fPIC','-shared','-static-libstdc++','-Wl,-z,max-page-size=16384',
          '-Wl,-z,common-page-size=16384','-Wl,--no-undefined','-Wl,-z,noexecstack',
          ROOT/'runtime/AndroidHost/Probe.cpp',ROOT/'runtime/AndroidHost/ShaderProbe.cpp',ROOT/'runtime/AndroidHost/BCDecodeProbe.cpp',
-         ROOT/'runtime/AndroidHost/RuntimeProbe.cpp',ROOT/'runtime/AndroidHost/DarwinBridge.cpp',ROOT/'runtime/AndroidHost/DarwinVarargs.cpp',ROOT/'runtime/AndroidHost/DarwinThreads.cpp',ROOT/'runtime/AndroidHost/DarwinABI.S',*extra,'-lvulkan','-lEGL','-lGLESv3','-landroid','-llog','-o',native])
+         ROOT/'runtime/AndroidHost/RuntimeProbe.cpp',ROOT/'runtime/AndroidHost/RuntimeLoader.cpp',ROOT/'runtime/AndroidHost/DarwinUnwind.cpp',ROOT/'runtime/AndroidHost/DarwinBridge.cpp',ROOT/'runtime/AndroidHost/DarwinVarargs.cpp',ROOT/'runtime/AndroidHost/DarwinThreads.cpp',ROOT/'runtime/AndroidHost/DarwinABI.S',ROOT/'runtime/AndroidHost/DarwinIcalls.S',ROOT/'runtime/AndroidHost/IcallProbe.cpp',*extra,'-lvulkan','-lEGL','-lGLESv3','-landroid','-llog','-o',native])
     java_sources = sorted((ROOT/'apps/android/src').rglob('*.java'))
     run([java/'bin/javac','--release','8','-classpath',platform,'-d',output/'classes',*java_sources])
     run([tools/'d8','--min-api','28','--lib',platform,'--output',output/'dex',*sorted((output/'classes').rglob('*.class'))])
@@ -70,6 +70,8 @@ def build(sdk, java, original=False, shaders=False, mapped=False):
         apk.write(native,'lib/arm64-v8a/libdiscoprobe.so',compress_type=zipfile.ZIP_STORED)
         if runtime:
             apk.write(runtime/'runtime.map','assets/runtime.map',compress_type=zipfile.ZIP_STORED)
+            apk.write(runtime/'unwind.map','assets/unwind.map',compress_type=zipfile.ZIP_STORED)
+            for name in ('amplify.map','amplify-unwind.map'):apk.write(runtime/name,'assets/'+name,compress_type=zipfile.ZIP_STORED)
             apk.write(ROOT/'reference/Disco.app/Contents/Resources/Data/il2cpp_data/Metadata/global-metadata.dat','assets/global-metadata.dat',compress_type=zipfile.ZIP_STORED)
     if shaders:
         samples=ROOT/'artifacts/android/shaders'
@@ -80,12 +82,8 @@ def build(sdk, java, original=False, shaders=False, mapped=False):
                 apk.write(samples/name,'assets/'+name,compress_type=zipfile.ZIP_DEFLATED)
     aligned = output/'aligned.apk'
     run([tools/'zipalign','-f','-P','16','4',unsigned,aligned])
-    signing = base/'signing'; signing.mkdir(exist_ok=True)
-    key = signing/'debug.keystore'
-    if not key.exists():
-        run([java/'bin/keytool','-genkeypair','-keystore',key,'-storepass','android','-keypass','android',
-             '-alias','androiddebugkey','-keyalg','RSA','-keysize','2048','-validity','10000',
-             '-dname','CN=Local Android Debug,O=Disco Port,C=US','-noprompt'])
+    from disco_port.android_build import signing_key
+    key = signing_key(ROOT, java, run)
     apk = output/'disco-android-probe.apk'
     run([tools/'apksigner','sign','--ks',key,'--ks-key-alias','androiddebugkey','--ks-pass','pass:android','--key-pass','pass:android','--out',apk,aligned])
     run([tools/'apksigner','verify','--verbose',apk])

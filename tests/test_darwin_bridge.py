@@ -55,6 +55,20 @@ int main(){
     String sub{};assert(StringSubstring(&sub,&data.s,2,4,nullptr)==&sub);assert(!std::strcmp(sub.Data(),"ortx"));StringCopyAssign(&data.s,&sub);StringDestroy(&sub);
     String copy{};assert(StringCopyConstruct(&copy,&data.s)==&copy);StringPush(&copy,'!');assert(!std::strcmp(copy.Data(),"ortx!"));assert(StringDestroy(&copy)==&copy);assert(StringDestroy(&data.s)==&data.s);
     assert(data.left==0x12345678&&data.right==0x87654321);
+    String growing{};StringAssign(&growing,"abcdefghijklmnopqrstuv");
+    auto staleSize=growing.Word(1);StringGrow(&growing,22,12,22,5,3,8);
+    assert(growing.Long()&&growing.Capacity()>=34&&growing.Word(1)==staleSize);
+    assert(!std::memcmp(growing.Data(),"abcde",5)&&!std::memcmp(growing.Data()+13,"ijklmnopqrstuv",14));
+    uint64_t finalSize=27;std::memcpy(growing.bytes+8,&finalSize,8);growing.Data()[27]=0;
+    std::memcpy(growing.Data()+5,"12345678",8);
+    assert(std::string(growing.Data(),growing.Size())=="abcde12345678ijklmnopqrstuv");
+    assert(!StringGrowthBounds(&growing,22,1,27,0,0,1));
+    assert(!StringGrowthBounds(&growing,growing.Capacity(),SIZE_MAX,27,0,0,1));
+    assert(!StringGrowthBounds(&growing,growing.Capacity(),1,27,28,0,1));
+    assert(!StringGrowthBounds(&growing,growing.Capacity(),1,27,20,8,1));
+    StringGrow(&growing,growing.Capacity(),100,27,27,0,1);
+    assert(growing.Size()==27&&!std::memcmp(growing.Data(),"abcde12345678ijklmnopqrstuv",27));
+    StringDestroy(&growing);
 }
 ''')
         exe=work/'test';subprocess.run(['xcrun','clang++','-std=c++17','-pthread','-I',str(ROOT/'runtime/AndroidHost'),str(source),'-o',str(exe)],check=True,capture_output=True)

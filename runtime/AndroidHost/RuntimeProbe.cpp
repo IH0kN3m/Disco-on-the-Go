@@ -1,5 +1,5 @@
 // Explicit native startup experiment, followed by metadata invocation and GC checks.
-#include "MappedImage.h"
+#include "RuntimeLoader.h"
 #include "DarwinBridge.h"
 #include <android/asset_manager.h>
 #include <android/log.h>
@@ -13,58 +13,35 @@
 #endif
 
 namespace DiscoDarwin {uintptr_t ResolveAdditional(const char*);void ConfigureImage(void*,size_t);void InstallCrashReport();bool ThreadBridgeSelfTest();}
-#ifdef DISCO_MAPPED_RUNTIME
-static uintptr_t imageBase=0;
-extern "C" [[noreturn]] void DiscoUnsupportedTrap(unsigned n,uintptr_t caller){__android_log_print(ANDROID_LOG_FATAL,"DiscoRuntime","UNSUPPORTED IMPORT %s caller_image_offset=%llx",n<sizeof(missingNames)/sizeof(*missingNames)?missingNames[n]:"invalid",(unsigned long long)(caller-imageBase));std::abort();}
-#endif
-namespace {
-std::atomic<unsigned> allocations{0},frees{0},clockQueries{0};
-void* Allocate(size_t n){++allocations;return std::malloc(n);}
-void Release(void* p){++frees;std::free(p);}
-struct Timebase {uint32_t numerator,denominator;};
-int TimebaseInfo(Timebase* value){++clockQueries;if(!value)return 4;value->numerator=1;value->denominator=1;return 0;}
-uintptr_t Resolve(const char* symbol) {
-    // Each entry is explicit. No dlsym-by-name assumption for Darwin ABI calls.
-    if(!std::strcmp(symbol,"_malloc"))return reinterpret_cast<uintptr_t>(&Allocate);
-    if(!std::strcmp(symbol,"_free"))return reinterpret_cast<uintptr_t>(&Release);
-    if(!std::strcmp(symbol,"_mach_timebase_info"))return reinterpret_cast<uintptr_t>(&TimebaseInfo);
-    return DiscoDarwin::ResolveAdditional(symbol);
+extern "C" __attribute__((returns_twice)) int DiscoPluginSetjmp(void*);
+extern "C" [[noreturn]] void DiscoPluginLongjmp(void*,int);
+namespace DiscoRuntime {void* TryOpenPlugin(const char*);void* PluginSymbol(void*,const char*);}
+static bool JumpSelfTest(){
+    alignas(16) uint8_t state[208]{};std::memset(state+192,0xa5,16);
+    volatile int phase=0;int value=DiscoPluginSetjmp(state);
+    if(!value){phase=1;DiscoPluginLongjmp(state,7);}
+    if(value!=7||phase!=1)return false;
+    for(unsigned i=192;i<208;++i)if(state[i]!=0xa5)return false;
+    value=DiscoPluginSetjmp(state);if(!value&&phase==1){phase=2;DiscoPluginLongjmp(state,0);}
+    return value==1&&phase==2;
 }
-void Phase(const char* phase){__android_log_print(ANDROID_LOG_INFO,"DiscoRuntime","%s",phase);}
-}
+using namespace DiscoRuntime;
+bool DiscoIcallSelfTest();
 
 std::string DiscoRuntimeReport(AAssetManager* manager,const char* dataPath) {
 #ifndef DISCO_MAPPED_RUNTIME
     return "{\"included\":false}";
 #else
     try {
+        DiscoMap::Require(DiscoIcallSelfTest(),"Apple-to-Android text stack ABI check failed");
+        Phase("Text internal-call bridge preserves mixed register/stack arguments and output guards");
+        DiscoMap::Require(JumpSelfTest(),"Plugin nonlocal jump check failed");
+        Phase("Plugin setjmp/longjmp restored execution and protected buffer bounds");
         bool threadPassed=DiscoDarwin::ThreadBridgeSelfTest();
         DiscoMap::Require(threadPassed,"Collector thread bridge self-test failed");
         Phase("synthetic thread suspension/resume and register capture passed");
-        Phase("reading mapped runtime package");
-        std::unique_ptr<AAsset,decltype(&AAsset_close)> asset(AAssetManager_open(manager,"runtime.map",AASSET_MODE_BUFFER),AAsset_close);
-        DiscoMap::Require(bool(asset),"Missing runtime package");
-        off64_t length=AAsset_getLength64(asset.get());
-        DiscoMap::Require(length>0 && length<=128*1024*1024,"Runtime asset exceeds bound");
-        const auto* bytes=static_cast<const uint8_t*>(AAsset_getBuffer(asset.get()));
-        DiscoMap::Require(bytes,"Runtime asset could not be read");
-        auto* retained=new DiscoMap::Image(bytes,length);auto& image=*retained;image.Map();
-        imageBase=reinterpret_cast<uintptr_t>(image.At(0));DiscoDarwin::ConfigureImage(image.At(0),image.span);DiscoDarwin::InstallCrashReport();
-        Phase("image segments mapped and pointer rebases applied");
-        std::set<std::string> missing;unsigned resolved=0;
-        size_t guardPage=getpagesize();
-        auto* unsupportedData=static_cast<uint8_t*>(mmap(nullptr,guardPage*std::size(missingNames),PROT_NONE,MAP_PRIVATE|MAP_ANONYMOUS,-1,0));
-        DiscoMap::Require(unsupportedData!=MAP_FAILED,"Unsupported-data guard allocation failed");
-        for(auto& b:image.bindings) {
-            const char* name=image.Name(b.name);uintptr_t address=Resolve(name);
-            if(address) {DiscoMap::Require(b.addend==0,"Bridge addend unsupported");++resolved;}
-            else {missing.insert(name);for(unsigned i=0;i<sizeof(missingNames)/sizeof(*missingNames);++i)if(!std::strcmp(name,missingNames[i])){address=missingCallable[i]?reinterpret_cast<uintptr_t>(missingThunks[i]):reinterpret_cast<uintptr_t>(unsupportedData+i*guardPage);DiscoMap::Require(b.addend>=0&&size_t(b.addend)<guardPage,"Unsupported import addend out of range");address+=b.addend;break;}}
-            // Unknown calls stop with their symbol name; no fake success or silent fallback.
-            DiscoMap::Require(address!=0,"Import has no explicit bridge or failure guard");image.Bind(b.address,address);
-        }
-        image.Seal();
-        Phase("bindings staged and executable segments sealed RX");
-        asset.release(); // Keep package backing and mapped callbacks alive until process exit.
+        auto& loadedModule=DiscoRuntime::Load(manager);auto& image=*loadedModule.image;
+        auto resolved=loadedModule.resolved;auto missingCount=loadedModule.missing;
         allocations=0;frees=0;clockQueries=0;
         struct Vector3{float x,y,z;};using Dot=float(*)(Vector3,Vector3,const void*);
         auto dot=reinterpret_cast<Dot>(image.At(RuntimePins::Dot,24,4));
@@ -114,16 +91,44 @@ std::string DiscoRuntimeReport(AAssetManager* manager,const char* dataPath) {
         bool invokePassed=unboxed&&*unboxed==32;
         DiscoMap::Require(invokePassed,"Metadata-invoked arithmetic mismatch");
         Phase("metadata lookup and original runtime_invoke returned expected arithmetic");
+        auto core=reinterpret_cast<void*(*)(void*,const char*)>(image.Symbol("_il2cpp_domain_assembly_open"))(domain,"mscorlib.dll");
+        auto coreImage=reinterpret_cast<void*(*)(void*)>(image.Symbol("_il2cpp_assembly_get_image"))(core);
+        auto integerClass=reinterpret_cast<void*(*)(void*,const char*,const char*)>(image.Symbol("_il2cpp_class_from_name"))(coreImage,"System","Int32");
+        auto parse=reinterpret_cast<void*(*)(void*,const char*,int)>(image.Symbol("_il2cpp_class_get_method_from_name"))(integerClass,"Parse",1);
+        DiscoMap::Require(parse,"Int32.Parse metadata missing");
+        auto input=reinterpret_cast<void*(*)(const char*)>(image.Symbol("_il2cpp_string_new"))("invalid-number");void* parseArgs[]={input};exception=nullptr;
+        reinterpret_cast<void*(*)(void*,void*,void**,void**)>(image.Symbol("_il2cpp_runtime_invoke"))(parse,nullptr,parseArgs,&exception);
+        DiscoMap::Require(exception,"Expected managed parse exception was not returned");
+        auto exceptionClass=reinterpret_cast<void*(*)(void*)>(image.Symbol("_il2cpp_object_get_class"))(exception);
+        auto exceptionName=reinterpret_cast<const char*(*)(void*)>(image.Symbol("_il2cpp_class_get_name"))(exceptionClass);
+        DiscoMap::Require(!std::strcmp(exceptionName,"FormatException"),"Unexpected managed exception type");
+        Phase("original managed exception unwound and was caught by runtime_invoke");
+        auto zoneClass=reinterpret_cast<void*(*)(void*,const char*,const char*)>(image.Symbol("_il2cpp_class_from_name"))(coreImage,"System","TimeZoneInfo");
+        auto localZone=reinterpret_cast<void*(*)(void*,const char*,int)>(image.Symbol("_il2cpp_class_get_method_from_name"))(zoneClass,"get_Local",0);
+        exception=nullptr;auto zone=reinterpret_cast<void*(*)(void*,void*,void**,void**)>(image.Symbol("_il2cpp_runtime_invoke"))(localZone,nullptr,nullptr,&exception);
+        DiscoMap::Require(zone&&!exception,"Managed Android timezone lookup failed");
+        Phase("Original managed timezone lookup completed against Android tzdata");
         reinterpret_cast<void(*)(int)>(image.Symbol("_il2cpp_gc_collect"))(2);
         Phase("original full garbage collection returned");
+        void* plugin=TryOpenPlugin("AmplifyTextureNative");DiscoMap::Require(plugin,"Amplify provider missing");
+        auto create=reinterpret_cast<void*(*)(int,const uint8_t*,int)>(PluginSymbol(plugin,"CreatePageDecoder"));
+        auto decode=reinterpret_cast<int(*)(void*,const uint8_t*,uint8_t*)>(PluginSymbol(plugin,"DecodeBC1ToRGBX"));
+        auto destroy=reinterpret_cast<void(*)(void*)>(PluginSymbol(plugin,"DestroyPageDecoder"));
+        DiscoMap::Require(create&&decode&&destroy,"Amplify CPU API missing");
+        const uint8_t plane[]={1,0,100},block[]={0,248,0,0,0,0,0,0};uint8_t pixels[64]{};
+        void* decoder=create(4,plane,1);DiscoMap::Require(decoder,"Amplify decoder construction failed");
+        int decoded=decode(decoder,block,pixels);destroy(decoder);DiscoMap::Require(decoded==0,"Amplify BC1 decode failed");
+        for(unsigned i=0;i<16;++i)DiscoMap::Require(pixels[i*4]==255&&pixels[i*4+1]==0&&pixels[i*4+2]==0,"Amplify decoded pixels differ");
+        Phase("Original Amplify CPU plugin decoded BC1 reference pixels");
         std::ostringstream out;
         out<<"{\"included\":true,\"mapped_bytes\":"<<image.span<<",\"segments\":"<<image.segments.size()
            <<",\"rebases\":"<<image.rebases.size()<<",\"bindings_resolved\":"<<resolved
-           <<",\"unresolved_import_symbols\":"<<missing.size()<<",\"executable_bytes_unchanged\":"<<(image.executableUnchanged?"true":"false")
+           <<",\"unresolved_import_symbols\":"<<missingCount<<",\"executable_bytes_unchanged\":"<<(image.executableUnchanged?"true":"false")
            <<",\"dot_passed\":"<<(dotPassed?"true":"false")<<",\"allocator_passed\":"<<(allocatorPassed?"true":"false")
            <<",\"clock_initializer_passed\":"<<(clockPassed?"true":"false")
            <<",\"passed\":"<<(dotPassed&&allocatorPassed&&clockPassed&&threadPassed&&invokePassed&&initialized?"true":"false")
-           <<",\"thread_bridge_passed\":true,\"metadata_invocation_passed\":true,\"gc_collection_returned\":true"
+           <<",\"thread_bridge_passed\":true,\"metadata_invocation_passed\":true,\"managed_exception_passed\":true,\"gc_collection_returned\":true"
+           <<",\"timezone_passed\":true,\"plugin_bc1_passed\":true,\"nonlocal_jump_passed\":true"
            <<",\"initializers_completed\":"<<image.initializers.size()<<",\"full_runtime_initialized\":"<<(initialized?"true":"false")<<",\"scope\":\"Original runtime startup experiment; engine and gameplay not integrated\"}";
         return out.str();
     } catch(const std::exception& error) {

@@ -23,6 +23,25 @@ struct String {
     }
 };
 static_assert(sizeof(String)==24,"Apple string layout");
+inline bool StringGrowthBounds(const String* s,size_t capacity,size_t delta,size_t size,size_t prefix,size_t removed,size_t added){
+    constexpr size_t limit=64*1024*1024;
+    return capacity==s->Capacity()&&capacity<=limit/2&&delta<=limit-capacity&&
+        size<=capacity&&prefix<=size&&removed<=size-prefix&&added<=limit-(size-removed)&&
+        size-removed+added<=std::max(capacity+delta,capacity*2);
+}
+inline void StringGrow(String* s,size_t capacity,size_t delta,size_t size,size_t prefix,size_t removed,size_t added){
+    if(!StringGrowthBounds(s,capacity,delta,size,prefix,removed,added))std::abort();
+    size_t storage=(std::max(capacity+delta,capacity*2)+16)&~size_t(15);
+    char* data=static_cast<char*>(std::malloc(storage));if(!data)std::abort();
+    const char* old=s->Data();bool wasLong=s->Long();uint64_t sizeWord=s->Word(1);
+    std::memcpy(data,old,prefix);
+    std::memcpy(data+prefix+added,old+prefix+removed,size-prefix-removed);
+    if(wasLong)std::free(const_cast<char*>(old));
+    // libc++'s legacy __grow_by deliberately leaves the size word unchanged.
+    // Its caller writes the inserted bytes, final size and terminating NUL.
+    uint64_t words[]={reinterpret_cast<uint64_t>(data),sizeWord,uint64_t(storage)|(1ULL<<63)};
+    std::memcpy(s,words,24);
+}
 inline String* StringDestroy(String* s){if(s->Long())std::free(s->Data());std::memset(s->bytes,0,24);return s;}
 inline String* StringAssignN(String* s,const char* p,size_t n){s->Write(p,n);return s;}
 inline String* StringAssign(String* s,const char* p){return StringAssignN(s,p,std::strlen(p));}

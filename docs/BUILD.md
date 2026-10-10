@@ -1,4 +1,6 @@
-# Local build
+# Local iPad build
+
+For Android from the same Mac input, use [ANDROID.md](ANDROID.md).
 
 ## Game input
 

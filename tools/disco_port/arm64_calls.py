@@ -23,6 +23,10 @@ def stub_slot(image, address):
         raise FormatError('Target is not an owned ARM64 import stub')
     code = struct.unpack_from('<3I', image.data, image.offset_for_address(address, 12))
     adrp, ldr, branch = code
+    if adrp==0xd503201f and ldr&0xff00001f==0x58000010 and branch==0xd61f0200:
+        immediate=(ldr>>5)&0x7ffff
+        if immediate&(1<<18):immediate-=1<<19
+        return address+4+immediate*4
     if adrp & 0x9f00001f != 0x90000010 or ldr & 0xffc003ff != 0xf9400210 or branch != 0xd61f0200:
         raise FormatError('Unsupported ARM64 stub instructions')
     immediate = ((adrp >> 29) & 3) | (((adrp >> 5) & 0x7ffff) << 2)

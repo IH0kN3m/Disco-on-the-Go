@@ -5,6 +5,18 @@ from port import steps, source_snapshot
 
 
 class PortWorkflowTests(unittest.TestCase):
+    def test_android_pipeline_uses_mac_and_no_probe_or_device_steps(self):
+        plan = steps(Path('/synthetic'), 'android')
+        self.assertEqual([name for name, _ in plan], [
+            'export-unity-android', 'android-assets', 'android-asset-audit', 'android-build'])
+        commands = str(plan)
+        for forbidden in ('deploy', 'setup_', 'inspect_scenes', 'recover', 'disco-win', 'build_android.py', 'methods.sqlite'):
+            self.assertNotIn(forbidden, commands)
+        self.assertIn('/synthetic/.venv/bin/python', commands)
+        self.assertIn('--game-data', commands)
+        self.assertIn('--obb', commands)
+        with self.assertRaises(ValueError): steps(platform='unknown')
+
     def test_pipeline_order_has_no_device_network_or_recovery_dependencies(self):
         plan = steps(Path('/synthetic'))
         names = [name for name, _ in plan]

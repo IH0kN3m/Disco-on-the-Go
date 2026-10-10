@@ -1,6 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="org.discoport.androidprobe">
     <uses-sdk android:minSdkVersion="28" android:targetSdkVersion="36" />
     <uses-feature android:glEsVersion="0x00030000" android:required="false" />
+    <instrumentation android:name=".GestureInstrumentation" android:targetPackage="org.discoport.androidprobe" />
     <application android:label="Disco Android Probe" android:theme="@android:style/Theme.Material.NoActionBar" android:allowBackup="false" android:debuggable="true" android:extractNativeLibs="false">
         <activity android:name=".ProbeActivity" android:exported="true" android:configChanges="orientation|screenSize|keyboardHidden">
             <intent-filter>

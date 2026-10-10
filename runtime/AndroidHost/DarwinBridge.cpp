@@ -1,8 +1,20 @@
 #include "DarwinBridge.h"
 #include "DarwinString.h"
 #include "DarwinSystem.h"
+#include "DarwinLocale.h"
+#include "DarwinDirectory.h"
+#include "DarwinFoundation.h"
+#ifdef DISCO_MAPPED_RUNTIME
+namespace DiscoRuntime {void* TryOpenPlugin(const char*);bool PluginHandle(void*);void* PluginSymbol(void*,const char*);}
+#endif
 #include <android/log.h>
 #include <cmath>
+#include <cwctype>
+#include <malloc.h>
+#include <dirent.h>
+#include <cxxabi.h>
+#include <unwind.h>
+#include <sys/utsname.h>
 #include <cstdio>
 #include <unistd.h>
 #include <sys/mman.h>
@@ -17,7 +29,11 @@
 #include <unordered_map>
 
 extern char** environ;
-extern "C" void DiscoDarwinSnprintf(),DiscoDarwinSprintf(),DiscoDarwinOpen(),DiscoDarwinStackProbe(),DiscoGCSpill();
+extern "C" _Unwind_Reason_Code __gxx_personality_v0(int,_Unwind_Action,uint64_t,_Unwind_Exception*,_Unwind_Context*);
+extern "C" char DiscoClassVtable[] asm("_ZTVN10__cxxabiv117__class_type_infoE");
+extern "C" char DiscoSingleVtable[] asm("_ZTVN10__cxxabiv120__si_class_type_infoE");
+extern "C" char DiscoMultipleVtable[] asm("_ZTVN10__cxxabiv121__vmi_class_type_infoE");
+extern "C" void DiscoDarwinSnprintf(),DiscoDarwinSprintf(),DiscoDarwinOpen(),DiscoDarwinStackProbe(),DiscoGCSpill(),DiscoPluginSetjmp(),DiscoPluginLongjmp(),DiscoDarwinPrintf(),DiscoDarwinFcntl();
 extern "C" int DiscoSnprintf(char*,size_t,const char*,const uint8_t*);
 extern "C" int DiscoVfprintf(FILE*,const char*,const uint8_t*);
 namespace DiscoDarwin {
@@ -77,8 +93,72 @@ inline void* StackTop(pthread_t thread){pthread_attr_t attr;if(pthread_getattr_n
 inline uintptr_t stackGuard=0x98ad2749bc517e00ULL;
 inline FILE* errorStream=stderr;
 
+struct Trace {void** output;int size,count;};
+inline _Unwind_Reason_Code TraceFrame(_Unwind_Context* frame,void* opaque){auto& trace=*static_cast<Trace*>(opaque);uintptr_t ip=_Unwind_GetIP(frame);if(ip&&trace.count<trace.size)trace.output[trace.count++]=reinterpret_cast<void*>(ip);return trace.count==trace.size?_URC_END_OF_STACK:_URC_NO_REASON;}
+inline int Backtrace(void** output,int size){if(!output||size<=0)return 0;Trace trace{output,size,0};_Unwind_Backtrace(TraceFrame,&trace);return trace.count;}
+struct SinCos {float sine,cosine;};
+inline SinCos SinCosFloat(float v){return {sinf(v),cosf(v)};}
+inline float ExpTen(float v){return powf(10,v);}
+struct Uname {char system[256],node[256],release[256],version[256],machine[256];};
+inline int SystemName(Uname* out){if(!out){errno=EFAULT;return -1;}utsname value{};int r=uname(&value);if(r)return r;std::memset(out,0,sizeof(*out));strlcpy(out->system,value.sysname,256);strlcpy(out->node,value.nodename,256);strlcpy(out->release,value.release,256);strlcpy(out->version,value.version,256);strlcpy(out->machine,value.machine,256);return 0;}
+inline DiscoDirectory::Entry* ReadDirectory(DIR* directory){
+    auto* native=readdir(directory);if(!native)return nullptr;
+    static thread_local DiscoDirectory::Entry result;
+    if(!DiscoDirectory::Convert(result,native->d_ino,native->d_off,native->d_type,native->d_name)){errno=ENAMETOOLONG;return nullptr;}return &result;
+}
+extern "C" int DiscoFcntl(int fd,int command,const uint8_t* arguments){
+    int value=0;if(command==0||command==2||command==4)std::memcpy(&value,arguments,4);
+    switch(command){
+    case 0:return fcntl(fd,F_DUPFD,value);
+    case 1:return fcntl(fd,F_GETFD);
+    case 2:return fcntl(fd,F_SETFD,value);
+    case 3:{int flags=fcntl(fd,F_GETFL);if(flags<0)return flags;return (flags&O_ACCMODE)|((flags&O_APPEND)?8:0)|((flags&O_NONBLOCK)?4:0);}
+    case 4:if(value&~(3|4|8)){errno=EINVAL;return -1;}return fcntl(fd,F_SETFL,(value&3)|((value&8)?O_APPEND:0)|((value&4)?O_NONBLOCK:0));
+    default:__android_log_print(ANDROID_LOG_FATAL,"DiscoRuntime","Unsupported Darwin fcntl command %d",command);std::abort();
+    }
+}
+inline void SortIntegers(int* begin,int* end,void*){if(end<begin||size_t(end-begin)>16*1024*1024)std::abort();std::sort(begin,end);}
+inline void* OpenLibrary(const char* path,int flags){
+    if(flags&~15){__android_log_print(ANDROID_LOG_FATAL,"DiscoRuntime","Unsupported Darwin dlopen flags %x",flags);std::abort();}
+#ifdef DISCO_MAPPED_RUNTIME
+    if(void* plugin=DiscoRuntime::TryOpenPlugin(path))return plugin;
+#endif
+    int mode=(flags&2)?RTLD_NOW:RTLD_LAZY;if(flags&8)mode|=RTLD_GLOBAL;
+    void* handle=dlopen(path,mode);
+    __android_log_print(ANDROID_LOG_INFO,"DiscoRuntime","dlopen %s -> %s",path?path:"<process>",handle?"loaded":"unavailable");return handle;
+}
+inline void* LibrarySymbol(void* handle,const char* name){
+#ifdef DISCO_MAPPED_RUNTIME
+    if(DiscoRuntime::PluginHandle(handle))return DiscoRuntime::PluginSymbol(handle,name);
+#endif
+    // Darwin's default/next pseudo-handles differ from Bionic's values.
+    if(handle==reinterpret_cast<void*>(intptr_t(-2)))handle=RTLD_DEFAULT;
+    else if(handle==reinterpret_cast<void*>(intptr_t(-1)))handle=RTLD_NEXT;
+    return dlsym(handle,name);
+}
+inline int CloseLibrary(void* handle){
+#ifdef DISCO_MAPPED_RUNTIME
+    if(DiscoRuntime::PluginHandle(handle))return 0; // Process-lifetime CPU codec callbacks.
+#endif
+    return dlclose(handle);
+}
 uintptr_t ResolveAdditional(const char* name){
 #define R(symbol,function) if(!std::strcmp(name,symbol))return reinterpret_cast<uintptr_t>(function)
+    R("_OBJC_CLASS_$_NSString",&DiscoFoundation::stringClass);R("_OBJC_CLASS_$_NSTimeZone",&DiscoFoundation::zoneClass);
+    R("_objc_alloc",&DiscoFoundation::Alloc);R("_objc_msgSend",&DiscoFoundation::Message);R("_objc_release",&DiscoFoundation::Release);
+    R("_objc_retainAutoreleasedReturnValue",&DiscoFoundation::Retain);R("_objc_retainAutorelease",&DiscoFoundation::RetainAutorelease);
+    R("_objc_autoreleasePoolPush",&DiscoFoundation::PoolPush);R("_objc_autoreleasePoolPop",&DiscoFoundation::PoolPop);
+    R("_CFLocaleCopyCurrent",&DiscoLocale::CopyCurrent);R("_CFLocaleGetIdentifier",&DiscoLocale::Identifier);R("_CFLocaleGetValue",&DiscoLocale::Value);R("_CFRelease",&DiscoLocale::Release);
+    R("_CFStringGetLength",&DiscoLocale::Length);R("_CFStringGetMaximumSizeForEncoding",&DiscoLocale::MaxSize);R("_CFStringGetCString",&DiscoLocale::CString);R("_CFStringGetBytes",&DiscoLocale::Bytes);
+    R("_kCFLocaleLanguageCode",&DiscoLocale::languageKeyPointer);R("_kCFLocaleCountryCode",&DiscoLocale::countryKeyPointer);R("_kCFLocaleScriptCode",&DiscoLocale::scriptKeyPointer);
+    R("_readdir",&ReadDirectory);R("_fcntl",&DiscoDarwinFcntl);R("_setjmp",&DiscoPluginSetjmp);R("_longjmp",&DiscoPluginLongjmp);R("_printf",&DiscoDarwinPrintf);
+    R("_backtrace",&Backtrace);R("_dlopen",&OpenLibrary);R("_dlsym",&LibrarySymbol);R("_dlclose",&CloseLibrary);R("_dlerror",&dlerror);
+    R("___tolower",&towlower);R("___toupper",&towupper);
+    R("__Unwind_Resume",&_Unwind_Resume);R("___gxx_personality_v0",&__gxx_personality_v0);
+    R("___cxa_allocate_exception",&__cxxabiv1::__cxa_allocate_exception);R("___cxa_free_exception",&__cxxabiv1::__cxa_free_exception);
+    R("___cxa_throw",&__cxxabiv1::__cxa_throw);R("___cxa_rethrow",&__cxxabiv1::__cxa_rethrow);R("___cxa_begin_catch",&__cxxabiv1::__cxa_begin_catch);R("___cxa_end_catch",&__cxxabiv1::__cxa_end_catch);R("___cxa_pure_virtual",&__cxxabiv1::__cxa_pure_virtual);
+    R("__ZTVN10__cxxabiv117__class_type_infoE",DiscoClassVtable);R("__ZTVN10__cxxabiv120__si_class_type_infoE",DiscoSingleVtable);R("__ZTVN10__cxxabiv121__vmi_class_type_infoE",DiscoMultipleVtable);
+    R("__ZSt9terminatev",&std::terminate);
     R("__Znwm",&New);R("__Znam",&New);R("__ZdlPv",&Delete);R("__ZdaPv",&Delete);
     R("_pthread_mutex_init",&MutexInit);R("_pthread_mutex_destroy",&MutexDestroy);R("_pthread_mutex_lock",&MutexLock);R("_pthread_mutex_unlock",&MutexUnlock);
     R("_pthread_mutexattr_init",&AttrInit);R("_pthread_mutexattr_settype",&AttrType);R("_pthread_mutexattr_destroy",&AttrDestroy);
@@ -88,9 +168,11 @@ uintptr_t ResolveAdditional(const char* name){
     R("_pthread_attr_init",&ThreadAttrInit);R("_pthread_attr_destroy",&ThreadAttrDestroy);R("_pthread_create",&ThreadCreate);R("_pthread_detach",&pthread_detach);R("_pthread_setname_np",&ThreadName);R("_pthread_atfork",&pthread_atfork);R("_pthread_self",&pthread_self);R("_pthread_get_stackaddr_np",&StackTop);R("_pthread_setcancelstate",&CancelState);
     R("_dispatch_semaphore_create",&SemaphoreCreate);R("_dispatch_semaphore_signal",&SemaphoreSignal);R("_dispatch_semaphore_wait",&SemaphoreWait);R("_dispatch_release",&SemaphoreRelease);
     R("_mach_thread_self",&MachThreadSelf);R("_mach_port_deallocate",&MachPortRelease);R("_mach_task_self_",&machTask);R("_thread_suspend",&ThreadSuspend);R("_thread_resume",&ThreadResume);R("_thread_get_state",&ThreadGetState);R("_mach_absolute_time",&AbsoluteTime);R("___cxa_guard_acquire",&GuardAcquire);R("___cxa_guard_release",&GuardRelease);R("___cxa_guard_abort",&GuardAbort);R("___cxa_atexit",&AtExit);
-    R("__ZNSt3__15mutexD1Ev",&MutexDtor);R("__ZNSt3__118condition_variableD1Ev",&CondDtor);
+    R("__ZNSt3__16__sortIRNS_6__lessIiiEEPiEEvT0_S5_T_",&SortIntegers);
+    R("__ZNSt3__15mutex4lockEv",&MutexLock);R("__ZNSt3__15mutex6unlockEv",&MutexUnlock);R("__ZNSt3__15mutexD1Ev",&MutexDtor);R("__ZNSt3__118condition_variableD1Ev",&CondDtor);
     R("__ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEED1Ev",&StringDestroy);
     R("__ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE7reserveEm",&StringReserve);
+    R("__ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE9__grow_byEmmmmmm",&StringGrow);
     R("__ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE6insertEmPKc",&StringInsert);
     R("__ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEC1ERKS5_mmRKS4_",&StringSubstring);
     R("__ZNKSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE7compareEmmPKcm",&StringCompareRange);
@@ -110,6 +192,10 @@ uintptr_t ResolveAdditional(const char* name){
     R("_mmap",&Map);R("_fstat",&FileStat);R("_stat",&PathStat);R("_lstat",&LinkStat);R("_open",&DiscoDarwinOpen);R("_sysctl",&Sysctl);R("_gettimeofday",&GetTime);R("_atexit",&PlainAtExit);R("___stack_chk_fail",&StackFailure);R("_sysconf",&Sysconf);R("_setlocale",&SetLocale);R("_newlocale",&NewLocale);R("_freelocale",&freelocale);R("__NSGetEnviron",&Environ);
 #define C(function) R("_" #function,&function)
     C(gethostname);C(calloc);C(realloc);C(memcpy);C(memmove);C(memset);C(memcmp);R("_memchr",static_cast<void*(*)(void*,int,size_t)>(&memchr));C(strlen);C(strcmp);C(strncmp);C(strcpy);C(strncpy);R("_strchr",static_cast<char*(*)(char*,int)>(&strchr));R("_strrchr",static_cast<char*(*)(char*,int)>(&strrchr));R("_strstr",static_cast<char*(*)(char*,const char*)>(&strstr));C(strlcpy);C(strtol);C(strtoul);C(atoi);C(atol);C(getenv);C(setenv);C(unsetenv);
+    R("_acos",static_cast<double(*)(double)>(&acos));C(acosf);R("_asin",static_cast<double(*)(double)>(&asin));C(asinf);R("_atan",static_cast<double(*)(double)>(&atan));R("_atan2",static_cast<double(*)(double,double)>(&atan2));C(atan2f);C(atanf);R("_cos",static_cast<double(*)(double)>(&cos));C(cosf);R("_cosh",static_cast<double(*)(double)>(&cosh));R("_exp",static_cast<double(*)(double)>(&exp));C(exp2f);R("_fmod",static_cast<double(*)(double,double)>(&fmod));C(fmodf);R("_hypot",static_cast<double(*)(double,double)>(&hypot));C(ldexpf);R("_log",static_cast<double(*)(double)>(&log));R("_log10",static_cast<double(*)(double)>(&log10));C(log10f);R("_logb",static_cast<double(*)(double)>(&logb));R("_modf",static_cast<double(*)(double,double*)>(&modf));R("_pow",static_cast<double(*)(double,double)>(&pow));C(powf);R("_scalbn",static_cast<double(*)(double,int)>(&scalbn));R("_sin",static_cast<double(*)(double)>(&sin));C(sinf);R("_sinh",static_cast<double(*)(double)>(&sinh));R("_tan",static_cast<double(*)(double)>(&tan));C(tanf);R("_tanh",static_cast<double(*)(double)>(&tanh));
+    R("___sincosf_stret",&SinCosFloat);R("___exp10f",&ExpTen);R("_uname",&SystemName);
+    C(opendir);C(closedir);C(_exit);C(ferror);C(fputs);C(puts);R("_malloc_size",&malloc_usable_size);
+    C(chmod);C(mkdir);C(rename);C(rmdir);C(dup2);C(isatty);C(pipe);C(difftime);C(gmtime);C(localtime);C(mktime);C(strftime);
     C(dup);C(ftruncate);C(clock);C(bsearch);C(close);C(read);C(write);C(lseek);C(munmap);C(mprotect);C(getpagesize);C(getcwd);C(access);C(unlink);C(fopen);C(fclose);C(fflush);C(fread);C(fwrite);C(ftello);C(fseeko);C(posix_memalign);C(nanosleep);C(time);C(sched_yield);C(abort);
 #undef C
 #undef R

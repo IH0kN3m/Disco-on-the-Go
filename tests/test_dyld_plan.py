@@ -60,3 +60,9 @@ class DyldPlanTests(unittest.TestCase):
         for raw in (data[:8], b'\0\x01_a\0\0', b'\0\x01_a\0\x7f',
                     data[:7]+b'\x08'+data[8:], data[:8]+b'\x7f\0'):
             with self.assertRaises(FormatError): exports(fixture(), raw)
+
+    def test_empty_edge_prefix_terminal(self):
+        # Root -> _a -> empty terminal. A bounded leaf is valid dyld output.
+        data=b'\0\1_a\0\6\0\1\0\x0a\2\0\x08\0'
+        self.assertEqual(exports(fixture(),data),{'_a':8})
+        with self.assertRaises(FormatError):exports(fixture(),data[:-1]+b'\1')

@@ -1,3 +1,4 @@
+#include "AndroidLocale.h"
 // Original Android diagnostic. Optional source arithmetic is linked from local artifacts.
 #include <jni.h>
 #include <android/asset_manager_jni.h>
@@ -29,6 +30,7 @@ static std::string Quote(const char* text) {
 
 extern "C" JNIEXPORT jstring JNICALL
 Java_org_discoport_androidprobe_ProbeActivity_nativeReport(JNIEnv* env, jclass, jobject manager,jstring dataDirectory) {
+    ConfigureAndroidLocale(env);
     const char* dataPath=env->GetStringUTFChars(dataDirectory,nullptr);
     std::ostringstream out;
     out << "{\"page_size\":" << sysconf(_SC_PAGESIZE);

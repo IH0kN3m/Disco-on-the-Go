@@ -20,6 +20,9 @@ class Arm64CallTests(unittest.TestCase):
         image = SimpleNamespace(data=raw, sections=[Section('__stubs','__TEXT',0x1000,12,0)],
                                 offset_for_address=lambda a,n:a-0x1000)
         self.assertEqual(stub_slot(image,0x1000),0x2018)
+        literal=struct.pack('<3I',0xd503201f,0x58000010|(7<<5),0xd61f0200)
+        image.data=literal;self.assertEqual(stub_slot(image,0x1000),0x1020)
+        image.data=raw
         for address in (0x1004,0x0ffc,0x100c):
             with self.assertRaises(FormatError):stub_slot(image,address)
         image.data=raw[:8]+struct.pack('<I',0xd65f03c0)
