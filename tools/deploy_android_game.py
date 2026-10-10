@@ -7,7 +7,7 @@ import subprocess
 import time
 import shutil
 import argparse
-from disco_port.android_probe import authorized_devices
+from disco_port.adb_devices import authorized_devices
 ROOT=Path(__file__).resolve().parent.parent
 PACKAGE='org.discoport.androidgame'
 
@@ -23,7 +23,7 @@ def deploy(config_path=None, output_path=None, install_only=False, launch_only=F
         return subprocess.run(['adb','-s',serial,*map(str,args)],capture_output=True,text=not binary,errors=None if binary else 'replace',check=check,timeout=timeout)
     if serial not in authorized_devices(subprocess.check_output(['adb','devices','-l'],text=True)):
         raise ValueError('Selected tablet is not connected/authorized')
-    build=ROOT/'artifacts/android/build-game';apk=build/'disco-android.apk';report=json.loads((build/'build.json').read_text())
+    build=ROOT/'artifacts/android/build-game';apk=build/'disco-on-the-go.apk';report=json.loads((build/'build.json').read_text())
     if hashlib.file_digest(apk.open('rb'),'sha256').hexdigest()!=report['apk_sha256']:raise ValueError('APK does not match build report')
     output.mkdir(parents=True,exist_ok=True)
     installed_report=output/'installed.json'
@@ -63,12 +63,13 @@ def deploy(config_path=None, output_path=None, install_only=False, launch_only=F
     (output/'runtime.log').write_text(logs.stdout)
     alive=adb('shell','pidof',PACKAGE,check=False).returncode==0
     print('Unity Android host process remains running:',alive)
-    print('\n'.join(logs.stdout.splitlines()[-35:]))
+    print('Private runtime log:',(output/'runtime.log').relative_to(ROOT))
     (output/'run.json').write_text(json.dumps({'process_alive':alive,'apk_sha256':report['apk_sha256'],'scope':'Unity integration run; process survival alone does not establish gameplay'},indent=2)+'\n')
     history=output/'history'/(time.strftime('%Y%m%d-%H%M%S')+'-'+report['apk_sha256'][:8])
     history.mkdir(parents=True,exist_ok=False)
     for name in ('run.json','runtime.log','launch.log','install.log'):
         shutil.copyfile(output/name,history/name)
+    if not alive:raise ValueError('Game process stopped during launch; inspect the private runtime log')
 
 
 if __name__=='__main__':

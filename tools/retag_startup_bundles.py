@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parent.parent
 
 def main(addressables=False):
     if UnityPy.__version__ != '1.25.4':
-        raise ValueError('Expected UnityPy 1.25.4; run make setup-scenes')
+        raise ValueError('Expected UnityPy 1.25.4; run make setup')
     root = ROOT / ('artifacts/build/native-engine-ios/Data/Raw/aa/StandaloneOSX' if addressables else 'artifacts/build/native-engine-ios/Data/Raw/AssetBundles/iOS')
     report = []
     for path in sorted(root.rglob('*')):

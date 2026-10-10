@@ -12,7 +12,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Original tooling and input tests
+      - name: Shipping tooling and input tests
         run: make test
       - name: Source and Git history audit
         run: make audit-release

@@ -1,7 +1,7 @@
-# Local game reference
+# Local game input
 
-Place your own compatible macOS game at `reference/Disco.app`, or symlink that path to your copy. Everything here except this README is ignored. Tools statically read the app, never execute its binaries on the Mac, and write derived outputs only under `artifacts/`.
+Place your own compatible macOS game at `reference/Disco.app`, or symlink that path to your copy. Everything here except this README is ignored. The build reads the game without modifying or launching it on the Mac, and writes derived files only under `artifacts/`.
 
-Run `make doctor` (iPad) or `make doctor PLATFORM=android` to check the exact runtime, metadata and plugin fingerprints. Other revisions require a separate compatibility audit. See [build instructions](../docs/BUILD.md). Do not upload the game or generated files with bug reports.
+Run `make doctor` or `make doctor PLATFORM=android` to check exact runtime, metadata and plugin fingerprints. See [build requirements](../docs/BUILD.md). Do not upload game files or generated products with bug reports.
 
-Optional Android comparison input: put the supplied Windows GOG setup EXE and all BIN parts in `reference/disco-win/`. Treat them as immutable. `tools/extract_windows_probe.py` extracts selected inspection files under ignored artifacts without running the installer; see [Android instructions](../docs/ANDROID.md). This comparison input is not required for either playable build; Android is built from the Mac app too.
+Any existing Windows installer comparison files under `reference/disco-win/` remain private and immutable; neither final build uses them.

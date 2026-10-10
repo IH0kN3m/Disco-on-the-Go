@@ -1,57 +1,52 @@
-# Local iPad build
-
-For Android from the same Mac input, use [ANDROID.md](ANDROID.md).
+# Building Disco on the Go
 
 ## Game input
 
-Place your own macOS `Disco.app` at `reference/Disco.app`, or create a local symlink there to your copy. No command launches its executables on the Mac. Do not modify this reference.
+Place your macOS game at `reference/Disco.app`, or symlink that path to your copy. The current compatibility layer requires the inspected Unity 2020.3.12f1 ARM64 revision. `make doctor` verifies GameAssembly, metadata, Steam and Amplify fingerprints in `tools/disco_port/build_inputs.py`.
 
-The current adapters are specific to one inspected Unity 2020.3.12f1 ARM64 revision. `make doctor` validates four SHA-256 fingerprints in `tools/disco_port/build_inputs.py`: GameAssembly, IL2CPP metadata, Steam API and Amplify native plugin. The GameAssembly fingerprint is `0550f5a1e9fb9addba0b365908f21bc5a04a2f3979f1b2a640774a05a6c7ab52`. Storefront/version labels alone are insufficient. Other distributions or revisions need a separate compatibility audit; never bypass the fingerprint check to force one through.
+The required GameAssembly SHA-256 is:
 
-Serialized-file layouts and object/resource hashes are checked during conversion. The full source bundle is fingerprinted before and after building. The reference must remain available for every full rebuild.
+```text
+0550f5a1e9fb9addba0b365908f21bc5a04a2f3979f1b2a640774a05a6c7ab52
+```
 
-## Tool setup
+A storefront/version label is insufficient. Other revisions need reviewed compatibility support; do not bypass the checks. The reference stays read-only. The full build compares its complete file fingerprint before and after processing.
 
-1. Install/select Xcode 27.x and complete its first-run setup, including iOS build support. `xcodebuild -version` must select it.
-2. Install Python 3.11+ and run `make setup-scenes`. The dependency lock is shared with optional inspection tools; the game build itself only uses UnityPy for bundle rewriting.
-3. Run `make setup-unity`. It verifies the pinned official package sizes and SHA-256 hashes, extracts them under `artifacts/toolchains/`, and records the editor executable in `unity-editor-path.txt`. It runs no installer scripts.
-4. Ensure you have Rosetta on Apple silicon and a valid license applicable to this editor. Open that editor manually if license activation is required. The workflow supplies no credentials or license bypass.
-5. Run `make doctor`, then `make port`.
+## Setup
 
-The archived editor/packages have reported invalid legacy signatures on the test Mac; why remains unresolved. The workflow does not disable system signature/security checks. If your Mac rejects the editor, resolve the installation with Unity's supported tooling. Do not assume the successful licensed installation on the test Mac makes first-time activation portable.
+Use macOS on Apple silicon, Python 3.11+, Rosetta and 60 GiB of free space after installing tools. iPad builds require Xcode 27.x with first-run setup complete. Android's additional prerequisites are in [ANDROID.md](ANDROID.md).
 
-An existing exact-version installation with iOS Build Support can be used by writing its absolute `Unity.app/Contents/MacOS/Unity` path to `artifacts/toolchains/unity-editor-path.txt`. The export checks the Unity version; the BC adapter also checks the exact engine object hash.
+`make setup` creates `.venv`, installs `requirements.lock`, and downloads checksum-pinned Unity 2020.3.12f1 and iOS support into `artifacts/toolchains/`. `make setup PLATFORM=android` also installs the Android module, legacy export SDK/NDK/JDK and the shader compiler. Modern Android SDK packages are installed using your SDK's `sdkmanager`.
 
-`make port` does not install packages, access a device, sign or download. It requires installed dependencies and a working license. It always rebuilds the derived pipeline, so no stale checkpoint is treated as success. It replaces generated host/export content under `artifacts/`; keep independent experiments elsewhere.
+Setup does not activate Unity or supply a license. `artifacts/toolchains/unity-editor-path.txt` records the editor executable; open its enclosing Unity.app if activation is needed. An existing exact-version editor with the required modules can be selected by replacing that file with its absolute executable path. Android module setup only modifies the locally extracted editor.
 
-## Outputs
+Archived Unity packages had legacy-signature issues on the test Mac. The build does not bypass system security checks. If macOS rejects the editor, resolve its installation with Unity's supported tooling.
 
-| Path under `artifacts/` | Meaning |
-| --- | --- |
-| `recovered-unity/` | Empty original export host; original game data is selected later |
-| `build/unity-ios/` | Pinned Unity iOS export |
-| `build/native-engine-ios/` | Derived game project and private `Data/` tree |
-| `build/native-engine-device-persistent/Build/Products/Debug-iphoneos/DiscoGeometryLab.app` | Unsigned app; historical product filename, not the geometry diagnostic |
-| `reproducibility/<timestamp>/` | Step logs, build report and original-bundle fingerprints |
-| `deployment-engine/` | Private signing, installation and device logs, created only by deployment |
+## Build and rebuild
 
-`python3 tools/port.py plan` prints the complete command sequence. `make port` stops at the first failing step and reports its log. Fix the cause and rerun; generated content may be partially prepared after failure.
+```sh
+make doctor
+make port
+# Or:
+make doctor PLATFORM=android
+make port PLATFORM=android
+```
 
-The data files live separately in `Documents/DiscoPortAssets/Data` on the iPad. The app only launches when the expected readiness manifest matches. Do not share the resulting app or data tree. For signing/deployment use [IPAD.md](IPAD.md).
+`make port` exports an empty Unity host, derives the runtime and assets from your game, applies the platform adapters, derives the app icons and builds the final app. Android also audits derived object preservation. Builds do not download tools, sign iPad apps or access devices. One build owns the workspace at a time.
 
-## Reproduction scope
+A full build regenerates the pipeline. For code-only iteration after a successful build, use `make build-ipad` or `make build-android`; these reuse staged game assets. `make audit-android` validates the staged Android assets and shader pairs.
 
-This is a repeatable source-input workflow, not a promise of byte-identical signed binaries. Xcode, timestamps, build paths, Unity caches and signing can change output bytes. Input fingerprints, dependency versions, exact Unity version, engine-object hash, object-body preservation and step success provide the reproducibility checks.
+Step logs and input/output fingerprints are in `artifacts/reproducibility/<timestamp>/`. `python3 tools/port.py plan --platform ipad` or `--platform android` prints the commands. Failures stop the build and identify the relevant log. Fix the cause and rerun.
 
-The offline clean-workspace test reuses the installed licensed editor and pinned Python environment; it does not establish that Unity activation or package acquisition works on a brand-new Mac. Device execution remains a separate test from compilation. See [STATUS.md](STATUS.md) for actual results.
+Generated projects, icons, data and packages remain under `artifacts/`. Keep the original game and local signing keys for future updates. Rebuilding is repeatable from checked inputs; signed binaries are not promised to be byte-identical.
 
 ## Troubleshooting
 
-- **Unsupported game revision:** compare the reported digest to `build_inputs.py`; use the matching local game revision or add deliberately reviewed support for another one.
-- **Editor exit/license error:** inspect `artifacts/build/unity-editor.log` and `unity-process.log`. Verify Rosetta, exact editor/iOS module and licensing manually.
-- **No BC texture support:** this build stops before loading game textures on an unsupported GPU. No quality-reducing conversion or RGBA fallback is selected.
-- **Missing/stale persistent assets:** rerun deployment, which verifies the generated data manifest before upload.
-- **Signing unavailable:** refresh Xcode's authorized team, its Certificates/Identifiers/Profiles access and the required memory entitlements. Build success does not imply provisioning success.
-- **Memory termination after visiting many scenes:** visited scenes still remain cached. Back up saves and capture a private diagnostic log; safe eviction is not implemented.
+- **Unsupported game revision:** use the matching input or implement separately reviewed support for yours.
+- **Missing tools:** run setup for the selected platform. `make doctor` checks pinned versions; Unity license validation happens when the editor runs.
+- **Unity export fails:** inspect the private editor/process logs. Check the editor version, modules, Rosetta and licensing.
+- **iPad signing fails:** check the selected Xcode team, Certificates/Identifiers/Profiles access, device registration and memory capabilities.
+- **Missing/stale game data:** run `make install` for the appropriate platform; keep the app identifier consistent.
+- **App stops while loading:** record the device/GPU and reproduction steps. Inspect private runtime logs; avoid posting credentials, device IDs or game data.
 
-For diagnostic scans and automatic screenshots, rerun `tools/configure_engine_assets.py` with the normal options plus `--diagnostics`, then rebuild. Omit that flag on the next configuration to return to normal play. Never post unreviewed device logs or crash reports publicly.
+Compilation, static audits and launch submission are separate from device gameplay validation. See [STATUS.md](STATUS.md).

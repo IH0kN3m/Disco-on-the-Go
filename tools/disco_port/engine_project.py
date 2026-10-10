@@ -71,7 +71,7 @@ def select_original_provider(project):
     sources[0]['files'] = kept
     provider.update(path='Frameworks/GameAssembly.framework', name='GameAssembly.framework', lastKnownFileType='wrapper.framework')
     provider.pop('explicitFileType', None)
-    options_ref.update(path='NativeEngineProbe.mm', name='NativeEngineProbe.mm', lastKnownFileType='sourcecode.cpp.objcpp')
+    options_ref.update(path='GameHost.mm', name='GameHost.mm', lastKnownFileType='sourcecode.cpp.objcpp')
     objects[embed_file] = {'isa': 'PBXBuildFile', 'fileRef': provider_id,
                            'settings': {'ATTRIBUTES': ['CodeSignOnCopy', 'RemoveHeadersOnCopy']}}
     objects[embed_phase] = {'isa': 'PBXCopyFilesBuildPhase', 'buildActionMask': '2147483647',

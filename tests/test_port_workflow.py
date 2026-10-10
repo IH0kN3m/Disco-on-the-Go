@@ -8,7 +8,7 @@ class PortWorkflowTests(unittest.TestCase):
     def test_android_pipeline_uses_mac_and_no_probe_or_device_steps(self):
         plan = steps(Path('/synthetic'), 'android')
         self.assertEqual([name for name, _ in plan], [
-            'export-unity-android', 'android-assets', 'android-asset-audit', 'android-build'])
+            'export-unity-android', 'android-assets', 'android-asset-audit', 'app-branding', 'android-build'])
         commands = str(plan)
         for forbidden in ('deploy', 'setup_', 'inspect_scenes', 'recover', 'disco-win', 'build_android.py', 'methods.sqlite'):
             self.assertNotIn(forbidden, commands)

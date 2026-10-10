@@ -1,44 +1,30 @@
-# Device setup
+# iPad installation
 
-Build the game first using [BUILD.md](BUILD.md). Device installation is separate and may require Apple network access for provisioning.
-
-1. Pair the iPad with Xcode, enable Developer Mode, trust the Mac and leave the device unlocked for launch. USB or an already paired local-network connection can be used.
-2. Sign in to your authorized Apple developer team in Xcode. The team needs Certificates, Identifiers & Profiles access, a registered device and the memory capabilities requested by this project. The verified setup uses a paid account.
-3. Create the ignored `artifacts/local-ipad.json`:
+1. Build with `make port`.
+2. Pair the iPad with Xcode, enable Developer Mode, trust the Mac and leave it unlocked. USB or an already paired local-network connection works.
+3. Sign in to your authorized Apple development team in Xcode. It needs Certificates, Identifiers & Profiles access, device registration and the increased-memory/extended-address-space capabilities requested by the app. The verified setup uses a paid account.
+4. Create the ignored `artifacts/local-ipad.json`:
 
 ```json
-{"team_id": "YOURTEAMID", "device_identifier": "YOUR-PAIRED-DEVICE-ID", "bundle_id": "org.yourname.disco"}
+{"team_id":"YOURTEAMID","device_identifier":"YOUR-PAIRED-DEVICE-ID","bundle_id":"org.yourname.discoonthego"}
 ```
 
-Choose a unique `bundle_id` available to your team. Omitting it preserves the historical `org.discoport.engineprobe` identifier for existing installs; new builders should supply their own. The setting changes only the app target, and the built identifier is verified before selecting its asset container.
-
-Use your own team ID and the paired identifier shown by `xcrun devicectl list devices`. Keep this configuration, command output, certificates, provisioning profiles and logs private.
+Choose a unique identifier available to your team. Existing installations must retain their current identifier to keep their app container and saves. Omitting it preserves the project's historical identifier. Find your paired device with `xcrun devicectl list devices`; keep the configuration and command output private.
 
 ```sh
-python3 tools/deploy_ipad.py --engine --mip-limit 0 --lazy-scenes
+make install
 ```
 
-The command validates a physical iPad on iPadOS 17+, signs with your team, installs, seeds the checked persistent asset directory and launches. It may create or update development provisioning. Native BC GPU support and actual memory headroom still determine whether the device can run the game; see [COMPATIBILITY.md](COMPATIBILITY.md).
+Installation verifies a physical iPad on iPadOS 17+, signs the app, transfers its checked asset tree and launches. The first transfer is about 9.6 GB. Later installs skip matching assets. The signed app is under `artifacts/build/signed-engine-persistent/Build/Products/Debug-iphoneos/Disco on the Go.app`.
 
-The first asset transfer is about 9.6 GB. Later deployments skip it when the readiness manifest matches. Do not change your established bundle identifier or delete the app during a playthrough without backing up its Documents directory/saves. Development-signed apps are subject to profile expiry; plan renewal before travel. Increased-memory entitlements do not guarantee access to all installed RAM.
-
-The working tree's unsigned output is not automatically installed. Device logs go to `Documents/native-engine.log`; retrieve only into ignored `artifacts/`. A returned process ID proves launch submission, not successful gameplay. Confirm loading a save, movement/input, UI alignment, a scene transition and save/reload on the actual device after runtime changes.
+Save before updating. Back up the app's Documents/SaveGames and Documents/Settings before deleting or replacing its container. Do not change the bundle ID during a playthrough. Development profiles expire; renew signing before travel. Requested memory entitlements do not grant access to all installed RAM.
 
 ## Touch and dialogue
 
-Tap the gamepad icon to show or hide the virtual controller. Drag the icon itself to move it; a drag does not toggle the controller. Its position is saved locally and kept inside the display's safe area after resizing or rotation. Empty space around the controls passes touches through to the game. Pinch zoom remains available on iPad.
+Tap to move/interact, pinch to zoom and hold to highlight. The gamepad icon toggles the virtual controller. Drag the icon itself to move it without toggling; its saved position stays inside the display's safe area. Hiding the pad releases its inputs and restores direct touch.
 
-The landscape layout uses the actual screen aspect. Newly created dialogue canvases and settings-driven layout resets receive the same fitting policy as the main UI. Dialogue font presets receive a 12.5% increase, rounded to whole font units, while retaining the selected dialogue-size setting. Other UI font settings are unchanged. The adapter adjusts runtime configuration before the first player frame; wrapping and scroll restoration use the game's existing code. This policy is specific to iPad; other models still need device testing.
+The landscape world and UI fit the actual display aspect, including dialogue canvases created after loading. Dialogue font presets are increased by 12.5%, rounded to whole font units, while retaining the selected setting. Wrapping and scrolling use the game's existing code. The M4 user confirmed the layout, controller dragging and increased text size.
 
-## Separate diagnostics
+Native Metal BC texture support and sufficient memory are required; unsupported GPUs stop before loading game textures. Other iPads need device testing. See [compatibility](COMPATIBILITY.md).
 
-These targets contain no complete game and are not part of `make port`:
-
-| Command | Purpose |
-| --- | --- |
-| `make build-ipad` / `make deploy-ipad` | Original UIKit touch harness |
-| `make build-simulator` | Simulator touch harness |
-| `make deploy-unity-ipad` | Earlier recovered static-geometry diagnostic; see [UNITY.md](UNITY.md) |
-| `make deploy-runtime-probe` | Original-runtime CPU experiment; see [NATIVE.md](NATIVE.md) |
-
-The harness was verified on the physical M4 on 6 October 2026. Original gameplay was subsequently verified on 7 October; it is separate from the distorted early geometry diagnostic.
+Runtime logs are written to Documents/native-engine.log. Retrieve them only into ignored artifacts. After runtime changes, verify save loading, conversation layout, movement, controls, a scene transition and save/reload on the actual device.

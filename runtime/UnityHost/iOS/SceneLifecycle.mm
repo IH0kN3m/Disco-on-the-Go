@@ -1,6 +1,6 @@
 // Original bridge for the pinned Unity 2020.3.12f1 iOS trampoline.
 // App launch records options; the first window scene initializes Unity.
-// Single-window diagnostic only. Multi-window game support is not implemented.
+// Single-window game host. Multi-window game support is not implemented.
 #import "UnityAppController.h"
 
 @interface UnityAppController (DiscoSceneStartup)

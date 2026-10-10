@@ -49,9 +49,12 @@ def build(provider_only=False, game_data=False, obb=False):
         if folder.exists():shutil.rmtree(folder)
         folder.mkdir()
     run([tools/'aapt2','compile','--dir',player/'Apk/res','-o',output/'resources.zip'])
+    branding=ROOT/'artifacts/branding/android-res'
+    if not (branding/'drawable/disco_icon.png').is_file():raise ValueError('Prepare local app icons with make port first')
+    run([tools/'aapt2','compile','--dir',branding,'-o',output/'branding.zip'])
     unsigned=output/'unaligned.apk'
     run([tools/'aapt2','link','--manifest',ROOT/'apps/android/GameManifest.xml','-I',platform,
-         '--java',output/'generated','--extra-packages','com.unity3d.player','-o',unsigned,output/'resources.zip'])
+         '--java',output/'generated','--extra-packages','com.unity3d.player','-o',unsigned,output/'resources.zip',output/'branding.zip'])
     unity=player/'Variations/il2cpp/Development';jar=unity/'Classes/classes.jar'
     sources=[*sorted((exported/'java').rglob('*.java')),*sorted((ROOT/'apps/android/game').rglob('*.java')),*sorted((output/'generated').rglob('*.java'))]
     run([java/'bin/javac','--release','8','-classpath',str(platform)+os.pathsep+str(jar),'-d',output/'classes',*sources])
@@ -95,7 +98,7 @@ def build(provider_only=False, game_data=False, obb=False):
         if game_data and not (ROOT/'artifacts/android/game-data/manifest.json').is_file():raise ValueError('Stage the complete game data first')
         for path in sorted(assets.rglob('*')):
             if path.is_file() and (not obb or path.name=='boot.config'):apk.write(path,'assets/'+str(path.relative_to(assets)),compress_type=zipfile.ZIP_STORED)
-    aligned=output/'aligned.apk';apk=output/'disco-android.apk'
+    aligned=output/'aligned.apk';apk=output/'disco-on-the-go.apk'
     run([tools/'zipalign','-f','-P','16','4',unsigned,aligned])
     key=signing_key(ROOT,java,run)
     run([tools/'apksigner','sign','--ks',key,'--ks-key-alias','androiddebugkey','--ks-pass','pass:android','--key-pass','pass:android','--out',apk,aligned])

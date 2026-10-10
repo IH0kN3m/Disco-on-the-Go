@@ -72,7 +72,7 @@ def signing_key(root, java, run):
         run([java / 'bin/keytool', '-genkeypair', '-keystore', key, '-storepass', 'android',
              '-keypass', 'android', '-alias', 'androiddebugkey', '-keyalg', 'RSA',
              '-keysize', '2048', '-validity', '10000',
-             '-dname', 'CN=Local Android Debug,O=Disco Port,C=US', '-noprompt'])
+             '-dname', 'CN=Local Android Debug,O=Disco on the Go,C=US', '-noprompt'])
     return key
 
 

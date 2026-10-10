@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 import subprocess
 import argparse
-from disco_port.android_probe import authorized_devices
+from disco_port.adb_devices import authorized_devices
 ROOT=Path(__file__).resolve().parent.parent
 
 def upload(config=None,log=None):

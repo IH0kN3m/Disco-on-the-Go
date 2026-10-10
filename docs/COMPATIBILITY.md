@@ -1,19 +1,19 @@
-# iPad compatibility
+# Compatibility and limits
 
-| Area | Supported/verified boundary |
-| --- | --- |
-| Verified device | 13-inch M4 iPad Pro, 16 GB, stock iPadOS 27.0; previous gameplay build |
-| Other iPads | Physical models accepted for development deployment; not yet device-verified |
-| GPU | Native `MTLDevice.supportsBCTextureCompression` is required; checked before game initialization |
-| Memory | Opening room approximately 4.0 GiB; tested subsequent scenes approximately 5.1 GiB. The tested 16 GB iPad still provides roughly a 6 GiB process budget |
-| OS/toolchain | Deployment target iPadOS 17+, actual device testing only on 27.0; build tools Xcode 27.x |
-| Display | Single full-screen landscape window; aspect 1.25–1.6, dimensions up to 16,384 pixels; tests include 13-inch, 11-inch/Air and mini-shaped viewports |
-| Input | Direct touch, pinch zoom and native virtual controller verified on M4 |
+Only the exact Mac game revision checked by `make doctor` is supported. See [input requirements](BUILD.md#game-input).
 
-Model acceptance is not a claim that every iPad can run the game. Native BC capability is queried from Metal, not guessed from the model string. A GPU without it currently stops with an explicit unsupported-GPU log before the expensive texture fallback. M1/M2 and other devices without native BC are not made compatible merely by removing the model whitelist. A texture conversion or bounded decode implementation would be separate work and needs visual-quality evaluation.
+| Platform | Device-tested baseline | Requirements and limits |
+| --- | --- | --- |
+| iPad | 13-inch iPad Pro M4, 16 GB, stock iPadOS 27 | iPadOS 17+, native Metal BC textures, sufficient process headroom, development signing with memory capabilities |
+| Android tablet | Galaxy Tab S10 Ultra, Mali-G720, about 11.26 GiB reported RAM | ARM64, API 28+, GLES 3.2; unsupported BC textures decode at runtime |
+| Android handheld | Retroid Pocket 5, Adreno 650, about 7.52 GiB reported RAM | Opening gameplay and quick-save tested; later areas need testing |
 
-The display adapter uses actual viewport dimensions and retains the existing 2048-unit UI reference height. Wider tablet ratios override the game's fixed 4:3 fitter and resize the reference canvas proportionally. These changes have synthetic policy tests and must still be checked on each physical form factor. Portrait, external widescreen, split view and Stage Manager resizing are not supported; one fixed landscape direction is used.
+Other iPads and Android devices are untested. The runtime checks required capabilities; passing those checks is not proof of a complete playthrough.
 
-More physical RAM does not guarantee a larger app memory allowance. Development signing requests increased memory and extended virtual addressing; iPadOS controls the actual allowance. No memory policy or image-quality downgrade is silently selected for smaller devices. Long sessions can exceed the allowance because visited scenes remain cached.
+The 16 GB M4 has shown roughly a 6 GiB process limit even with requested memory entitlements. Lazy scene loading avoids eagerly retaining the entire world, but visited areas remain cached. Long sessions and larger sequences of area transitions may still exceed available memory. Safe scene eviction is not implemented.
 
-Normal-play builds omit periodic VM-region scans, five-second main-thread allocation/scene inventories, startup BC readback experiments and automatic PNG captures. Lightweight 30-second process-memory sampling, startup checks and memory-warning evidence remain. This removes diagnostic work, but no frame-rate or battery-life improvement has been measured yet. Original texture blocks, mip levels, resolution, UI scale and frame-rate policy are preserved.
+Opening dialogue, textured gameplay, touch movement, saving and transitions work on the M4. Samsung menus, dialogue, room/outdoor rendering and highlighting are verified. Retroid opening gameplay and quick-save are verified. Background/resume, every controller action, every shader variant on each driver and the full game remain unverified.
+
+The build preserves source texture dimensions/data. Android changes shader/platform payloads and unsupported render-target formats. Audits verify their documented scope; they do not prove lossless rendering across the game.
+
+Development signing is for local installation. Keep your identifiers/keys stable, back up saves before updates, and renew iPad provisioning before its expiry.

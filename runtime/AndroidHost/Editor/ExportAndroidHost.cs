@@ -19,8 +19,8 @@ public static class ExportAndroidHost
         camera.clearFlags = CameraClearFlags.SolidColor;
         camera.backgroundColor = new Color(0.08f, 0.12f, 0.17f);
         EditorSceneManager.SaveScene(scene, "Assets/Host.unity");
-        PlayerSettings.companyName = "Disco Port";
-        PlayerSettings.productName = "Disco Android Host";
+        PlayerSettings.companyName = "Disco on the Go";
+        PlayerSettings.productName = "Disco on the Go";
         PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.Android, "org.discoport.androidgame");
         PlayerSettings.SetScriptingBackend(BuildTargetGroup.Android, ScriptingImplementation.IL2CPP);
         PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64;

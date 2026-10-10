@@ -1,4 +1,4 @@
-"""Validate the narrow Mach-O loader changes used by the iPad CPU probe."""
+"""Validate the narrow Mach-O loader changes used by the iPad runtime."""
 
 import hashlib
 import re
@@ -12,7 +12,7 @@ LOAD_DYLIB = {0xC, 0x80000018, 0x8000001F, 0x20, 0x80000023}
 def loader_info(data):
     image = MachO(data)
     if unpack(image.data, '<I', 12)[0] != 6:
-        raise FormatError('Runtime probe requires a Mach-O dynamic library')
+        raise FormatError('iPad runtime requires a Mach-O dynamic library')
     count = unpack(image.data, '<I', 16)[0]
     cursor = 32
     dependencies, platforms = [], []

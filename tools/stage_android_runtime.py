@@ -7,8 +7,6 @@ import struct
 from disco_port.binary import MachO
 from disco_port.build_inputs import validate_sources
 from disco_port.dyld_plan import load_plan
-from disco_port.android_probe import DOT_ADDRESS, DOT_SHA256, checked_leaf
-from disco_port.function_starts import function_starts
 from disco_port.arm64_calls import branch_target, stub_slot
 from disco_port.android_exports import export_sources
 from disco_port.mapped_package import image_package, unwind_package
@@ -20,7 +18,6 @@ ROOT = Path(__file__).resolve().parent.parent
 def stage():
     hashes = validate_sources(ROOT / 'reference/Disco.app')
     image = MachO((ROOT / 'reference/Disco.app/Contents/Frameworks/GameAssembly.dylib').read_bytes())
-    checked_leaf(image, function_starts(image), DOT_ADDRESS, 24, DOT_SHA256)
     plan = load_plan(image)
     output = ROOT / 'artifacts/android/runtime'; output.mkdir(parents=True, exist_ok=True)
     translated, instructions=baseline_image(image)
@@ -83,15 +80,7 @@ def stage():
         '\nstatic const char* missingNames[]={' + ','.join(json.dumps(n) for n in imports) + '};\n'+
         'static const bool missingCallable[]={' + ','.join('true' if n in callable_names else 'false' for n in imports) + '};\n'+
         'static void(*missingThunks[])()={' + ','.join(f'DiscoMissing_{n}' for n in range(len(imports))) + '};\n')
-    # Hash-pinned diagnostic entry points; native boot is an explicit experiment.
-    if plan['initializers'][0] != 0x253c:
-        raise ValueError('Pinned clock initializer changed')
-    (output / 'RuntimePins.h').write_text(
-        '#pragma once\nnamespace RuntimePins {\n'
-        f'constexpr unsigned long long Dot={DOT_ADDRESS};\n'
-        'constexpr unsigned long long ClockInit=0x253c, ClockData=0x2bf0e98, ClockRatio=0x2c06fc0;\n'
-        '}\n')
-    summary = {'scope': 'Mapped runtime startup experiment; unsupported imports trap; no engine or gameplay',
+    summary = {'scope': 'Mac-derived runtime package for the Android compatibility provider',
                'source_hashes': hashes, 'map_sha256': hashlib.sha256(pack).hexdigest(),
                'baseline_eor3_translations': len(instructions),
                'image_bytes': len(image.data), 'virtual_bytes': max(s.address + s.virtual_size for s in image.segments),

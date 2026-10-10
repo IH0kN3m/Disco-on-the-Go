@@ -1,6 +1,6 @@
 """Read the v27 metadata tables used by Unity 2020.3.12f1.
 
-Field order is documented by IL2CPP metadata structures; see docs/TOOLING.md.
+Field order is documented by IL2CPP metadata structures; validated against the supplied version.
 Type indexes remain raw until native metadata registration is recovered.
 """
 

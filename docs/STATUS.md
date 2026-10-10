@@ -1,77 +1,23 @@
-# Implementation status
+# Validation status
 
 10 October 2026
 
-## iPad dialogue and controls — 10 October 2026
+## Device results
 
-The M4 user confirmed that dialogue fits without the previously reported stretching, clipping or overlap, and that the updated controls behave correctly. The display adapter now detects new canvas registry owners/versions and reference-size resets even when the viewport and active scene stay unchanged. The gamepad icon itself can be dragged, retains a normalized local position and is clamped to safe display bounds. Saves and settings were backed up before installation; the established app identifier and persistent assets were retained.
+- **iPad Pro M4, 13-inch, 16 GB:** opening dialogue, textured gameplay, touch movement, saving/loading, scene transitions, landscape fitting, pinch zoom and virtual controller confirmed. The latest dialogue layout, draggable gamepad icon and larger dialogue text are user-confirmed.
+- **Galaxy Tab S10 Ultra:** menus, dialogue, room/outdoor rendering and two-finger highlighting confirmed. Mali outline rendering is fixed. The draggable controller icon's tap/drag behavior was captured on device.
+- **Retroid Pocket 5:** opening dialogue/room rendering and quick-save confirmed after the ARM64 instruction fix. The latest Mali-specific workaround has not been retested on this disconnected handheld.
 
-The remaining report was slightly small dialogue text at the maximum setting. A dialogue-only preset adjustment increases font sizes by 12.5%, retaining the user's selected setting and the game's paragraph/layout paths. The signed build is installed; its device log confirms that the adjusted presets are initialized before the game selects a text size. Device readability and wrapping verification for this adjustment are pending. No global UI font scale or Android input/rendering policy was changed. The suite passes 131 Python and 4 Swift tests, including malformed font presets, late layout ownership, reference resets and safe-area icon placement. Runtime changes do not establish full-playthrough stability.
+Full playthrough, later-area coverage, background/resume and sustained memory/performance remain unverified. See [compatibility](COMPATIBILITY.md).
 
-## Android investigation — 9 October 2026
+## Source and build checks
 
-The connected Galaxy Tab S10 Ultra runs the diagnostic APK, not gameplay. It reports ARM64 Android API 36, Mali-G720, approximately 11.26 GiB physical memory and a 2960×1848 display. BC1/3/6H/7 GPU sampling is unavailable; ASTC LDR is supported. Three cases of an isolated, unchanged original ARM64 arithmetic leaf pass in an Android ELF library. Full original-runtime compatibility remains unresolved.
+The release cleanup removes the early Swift touch harness, recovered-geometry pipeline, Windows comparison tools, standalone capability probes and their unused tests. The shipping runtime/input/parser tests remain. Both apps are named **Disco on the Go**; icons are derived from the local game during builds and never tracked. Stable app identifiers and signing-key paths are retained for updates.
 
-Twelve of thirteen distinct sampled game shader pairs link after GLES adaptation. One VR-layer shader requires an unavailable AMD extension. Synthetic BC1/BC3 GPU decoding passes 2,048 pixels against the CPU reference using bounded buffers; integration, other BC formats and full rendered fidelity are pending. The pinned Unity Android module is installed; a Unity Android game export has not been established.
+The current suite passes 105 synthetic tests. iPad startup diagnostics, periodic memory scans and screenshot probes were removed; GPU capability gating, memory-warning handling, full texture quality, display/input and scene adapters remain. Production Android rendering and exception/unwind adapters remain.
 
-The supplied Windows GOG build was extracted for static inspection with source hashes unchanged. All 24 selected executables/plugins are native PE; there is no managed game assembly set in the installer. It also uses Unity 2020.3.12f1 and IL2CPP v27. All 78 matching root shaders have identical OpenGL payloads to Mac, so it offers no shader shortcut in this sample. Metadata differs; the two builds must not be mixed. Retain the Mac ARM64 baseline for native Android work. Reproducible extraction/comparison commands and details are in [Android documentation](ANDROID.md). The installed iPad game is unchanged.
+The complete branded iPad pipeline passed all 13 steps with the source game unchanged. Its app name, executable and packaged icon were verified. The development-signed app was installed over the existing M4 container after backing up saves/settings; the asset manifest matched, and the device log confirms engine startup, dialogue presets, touch controls and the full landscape profile. Gameplay in this newly trimmed host has not been separately user-tested.
 
-Windows inspection tooling passes the full 80 Python and 4 Swift regression tests. The source/leak audit reports no findings; installer files, extracted binaries, metadata and comparison reports remain ignored local artifacts.
+The complete branded Android pipeline passed all five steps with the source game unchanged. APK launcher name and icon pixel equality were checked. The APK, OBB and streaming data are ready locally; this branded Android build has not been installed on a device. Object preservation passed for 1,953 containers and 202 copied files; all 5399 unique shader pairs compiled and linked without errors. The source and reachable-history audit has no findings; it is rerun after the release-preparation commit. Fresh first-time tool download/license activation on another Mac is not established.
 
-The Android loader now maps the full original ARM64 runtime image on the Samsung, applies 320,805 pointer rebases and preserves executable bytes. Every rebase location/target agrees with Apple's static dyld tool. Original allocation/free exports, mapped vector arithmetic and the first reviewed clock initializer pass on device. There are still 331 unresolved import symbols; full IL2CPP initialization and gameplay are not running. A bounded initializer dependency audit identifies threading, semaphore, C++ lifecycle and exception bridges as the next work; indirect calls remain explicit gaps. See [the runtime checkpoint](ANDROID.md#mapped-arm64-runtime-checkpoint).
-
-This checkpoint passes 87 Python and 4 Swift tests, real-reference inspection and the source/leak audit. Device deployment verifies the mapped-runtime test result rather than treating compilation or installation as execution success.
-
-## Offline release preparation — 7 October 2026
-
-- Normal play disables repeated VM scans, main-thread allocator/scene inventories, BC readback experiments and automatic screenshots. Full texture quality, UI scale and frame-rate policy are unchanged. Performance gains have not been measured on device.
-- `make doctor` validates the exact game revision and tools; `make port` runs the complete unsigned pipeline with per-step logs, exclusive workspace ownership and source immutability checks. An empty original Unity export host removes scene recovery/decompilation from the build prerequisites.
-- Fresh-directory reproduction passed all 12 steps using only public source plus the supplied game, installed licensed Unity editor and pinned Python environment. All 2,203 source-bundle entries were unchanged. The new project registers 8,163 bindings and 62 modules and retains all 76 root serialized files. Fresh tool download/license activation was not retested offline.
-- 70 Python tests and 4 Swift tests pass. The unsigned UIKit harness build passes. Source/leak checks found no findings in the working tree or the six existing Git commits. The release procedure reruns the audit after the final commit.
-- The main workspace also completed the full unsigned pipeline, with the same derived asset manifest as the fresh-directory build. The supplied reference remained unchanged in both runs.
-- Deployment can select a team-owned app identifier and verifies app/container ownership; existing installs retain their identifier by default.
-- Deployment accepts physical iPads on iPadOS 17+; full-screen tablet viewport policy covers 1.25–1.6 aspect ratios. Native BC is required at runtime. Other models, lower memory budgets and these display changes are not device-verified.
-- Updated README/build/device/compatibility/release instructions and source-only CI are prepared. No iPad installation, GitHub upload or publication was performed. Applicable game, Unity and plugin rights still need review; no legal clearance is claimed.
-
-## Prepared build installed — 7 October 2026
-
-The prepared build was development-signed, installed over the existing M4 app and launched with the same bundle identifier. The rebuilt asset manifest required a refresh. All six save files and the settings file were backed up locally; no app deletion or container reset was performed.
-
-The device log confirms Apple M4 native BC support, completed Unity application loading, the full 2752×2064 landscape profile and approximately 2.46 GiB startup footprint at the 30-second sample. Periodic diagnostic scans/readbacks/captures are disabled. The user confirmed that loading a save, movement, pinch zoom, the gamepad toggle and a scene transition work on this build. A full playthrough remains unverified.
-
-Deployment initially rejected CoreDevice's structured OS-version object. The parser now reads its `stringValue`, with regression coverage for valid and malformed objects. Real device validation and deployment subsequently passed. The current suite passes 71 Python tests and 4 Swift tests.
-
-## Prior device evidence
-
-| Work | Result |
-| --- | --- |
-| Static metadata index | 92 images, 14,861 types, 102,219 methods, 60,329 fields |
-| Native addresses | 96,723 mapped methods per architecture; 89 modules in ARM64 and x86_64 |
-| Unmapped direct pointers | 5,496 methods per architecture; generics and abstract methods need further analysis |
-| Scene inventory | 36 built scenes indexed |
-| Initial recovery target | Whirling floor 2, build index 6; 1,617 objects, 998 built-in components exported |
-| Custom scene data | All 414 MonoBehaviour components decoded across 58 classes; 375 via AssetsTools, 39 via AssetStudio |
-| Asset recovery | 67 meshes (18,327 vertices, 19,395 triangles), 58 materials, 57 standard textures exported locally |
-| References | 3,846 component references inspected; 16 Unity built-in runtime dependencies marked; zero unresolved errors within the documented scope |
-| iPad host | UIKit touch harness verified; separate Unity geometry diagnostic installed on the M4 |
-| Verification | 62 Python tests and 4 Swift tests pass; real-reference inspection, texture census, VTC sample recovery, UIKit unsigned build, Unity export and ARM64 engine build succeed |
-| Physical M4 | Paid development signing, installation and launch over local network succeeded on a real 13-inch M4, iPadOS 27.0; user confirmed harness checks work |
-| Amplify textures | 40 VTC2 containers and 311,680 page records validated; 640 Unity Crunch plane samples decoded; original derived ARM64 CPU codec plugin loads on M4 and removes missing-plugin exceptions; desktop OpenGL calls explicitly guarded; full room fidelity pending |
-| Unity toolchain | Exact 2020.3.12f1 editor/iOS module unpacked locally; existing license works; Xcode 27 export/compile/sign/install succeeds |
-| Unity scene diagnostic | 373 nodes and 67 meshes staged; UIKit lifecycle, shader stripping, and saved inactive groups handled; 82 active mesh instances; post-splash frame retrieved from the real M4 confirms rendering; sampled native transform matches source; original visual fidelity remains pending after user distortion reports |
-| Native ARM64 runtime | Derived module loaded on stock M4; original runtime/metadata initialized; original Vector3.Dot invocation returned 32; executable section hashes unchanged |
-| Original runtime + iOS engine | Single original provider linked; 8,163 bindings registered; Metal/startup succeeded on M4; original Time methods reached live engine state, with frames advancing 0 → 61 |
-| Original startup data | Complete 9.6 GB app installed; original localization/settings/game-data, intro and area code executed; 76 root files, 50 startup and 1,827 addressable containers retagged; object/resource bodies unchanged; dialogue bundle loaded; original copyright/loading UI and main menu captured; virtual-texture path errors fixed; loading memory and rendering issues remain |
-| Original Steam library | Derived ARM64 library loaded; client initialization failed without a Steam client; game continued with achievement provider NONE |
-| Device iteration | Persistent 9.6 GB asset tree seeded and checked by manifest; app reduced to about 96 MB; repeat deployments skip matching data uploads; actual launch settings validated |
-| Memory diagnosis | Physical RAM confirmed; roughly 6 GiB process headroom observed with requested capabilities; full-resolution warning at 4.81 GiB footprint with 2.72 GiB graphics-driver allocation; debugger confirms EXC_RESOURCE at 6,144 MB on New Game → Thinker → Continue; menu survives at about 4.94 GiB; retained allocations still under investigation |
-| BC hardware | Native Metal accepts BC1/3/7/6H; synthetic BC1 GPU readback passes; derived pinned-engine BC bridge enables all four and eliminates game fallback warnings; real-asset fidelity pending |
-| Texture streaming census | 5,190 nonempty Texture2D objects across 1,952 files; one mip-streaming flag; 3,787 BC objects estimate 1.59 GiB compressed versus 8.29 GiB fallback across all inspected containers, not runtime residency |
-| Scene residency | Original menu retains 33 loaded scenes. Validated runtime coroutine adapters reduce this to Church + Lobby (2), then demand-load Whirling floor 2 (3). Menu footprint about 2.5 GiB; visited scenes remain cached; eviction and cancellation cleanup pending |
-| Original gameplay | User confirms opening dialogue, textured room rendering, tap movement, saving and area transitions. GPU frames show the original room and outdoor scene. Initial room holds about 4.0 GiB; subsequent retained areas reach about 5.1 GiB. Full fidelity and long-session stability remain unverified |
-| Tablet display | Landscape backbuffer 2752×2064; original camera/UI profile adapted to 4:3. User confirms full-screen world, aligned bottom bar and correct appearance. Fixed landscape orientation; reverse-landscape rotation remains pending |
-| Additional touch controls | User confirms controller movement, A/B interaction, hiding the pad and pinch zoom work. Small icon toggles dual sticks, D-pad, ABXY, shoulders and triggers; Menu uses Escape. Device confirms one Unity joystick and original InControl selecting Apple MFi Controller. UI scale is unchanged |
-| Memory policy | Live signed entitlements confirmed. Removing the debugging entitlement still leaves roughly 6 GiB headroom before Unity starts. Read-only kernel-limit query denied; reason for device policy remains unresolved |
-| Simulator | Harness previously launched and layout inspected on the installed 13-inch M5 simulator |
-
-Next: preserve state across bounded scene eviction, test save/reload and longer play across more areas, and compare full visual fidelity. A complete playthrough is not established.
+No GitHub push, public upload or generated-game release has been performed.

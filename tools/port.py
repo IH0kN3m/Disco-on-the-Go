@@ -24,22 +24,24 @@ def steps(root=ROOT, platform='ipad'):
             ('export-unity-android', tool('export_android_host')),
             ('android-assets', [scene_python, 'tools/prepare_android_assets.py']),
             ('android-asset-audit', [scene_python, 'tools/audit_android_assets.py']),
+            ('app-branding', [scene_python, 'tools/prepare_branding.py']),
             ('android-build', tool('build_android_game', '--game-data', '--obb')),
         ]
     if platform != 'ipad': raise ValueError('Unsupported platform')
     return [
         ('inspect', tool('inspect_game')),
-        ('stage-host', tool('stage_engine_host')),
-        ('export-unity', tool('build_unity')),
-        ('runtime', tool('prepare_runtime_probe')),
+        ('stage-host', tool('stage_ipad_host')),
+        ('export-unity', tool('export_ipad_host')),
+        ('runtime', tool('prepare_ipad_runtime')),
         ('steam', tool('prepare_native_plugins')),
         ('amplify', tool('prepare_amplify_plugin')),
-        ('engine', tool('prepare_engine_probe', '--game-data', '--retag-serialized')),
+        ('engine', tool('prepare_ipad_game', '--game-data', '--retag-serialized')),
         ('startup-bundles', [scene_python, 'tools/retag_startup_bundles.py']),
         ('addressable-bundles', [scene_python, 'tools/retag_startup_bundles.py', '--addressables']),
-        ('configure', tool('configure_engine_assets', '--increased-memory', '--no-debug-memory', '--amplify-cpu', '--lazy-scenes', '--landscape')),
+        ('configure', tool('configure_ipad', '--increased-memory', '--no-debug-memory', '--amplify-cpu', '--lazy-scenes', '--landscape')),
+        ('app-branding', [scene_python, 'tools/prepare_branding.py', '--ipad-project', 'artifacts/build/native-engine-ios']),
         ('native-bc', tool('enable_engine_bc')),
-        ('build', tool('build_engine')),
+        ('build', tool('build_ipad_game')),
     ]
 
 
@@ -61,14 +63,14 @@ def doctor(platform='ipad'):
         toolchains = validate_toolchains(ROOT, editor)
     else: raise ValueError('Unsupported platform')
     check = 'import importlib.metadata,json; print(json.dumps({n:importlib.metadata.version(n) for n in ' + repr([
-        line.split('==')[0] for line in (ROOT / 'requirements-scenes.lock').read_text().splitlines() if line and not line.startswith('#')
+        line.split('==')[0] for line in (ROOT / 'requirements.lock').read_text().splitlines() if line and not line.startswith('#')
     ]) + '}))'
     versions = json.loads(subprocess.check_output([str(ROOT / '.venv/bin/python'), '-c', check], text=True))
-    for line in (ROOT / 'requirements-scenes.lock').read_text().splitlines():
+    for line in (ROOT / 'requirements.lock').read_text().splitlines():
         if line and not line.startswith('#'):
             name, version = line.split('==')
             if versions.get(name) != version:
-                raise ValueError('Dependency versions differ; run make setup-scenes')
+                raise ValueError('Dependency versions differ; run make setup')
     free = shutil.disk_usage(ROOT).free
     if free < 60 * 1024**3:
         raise ValueError('Keep at least 60 GiB free for local generated projects/builds')
@@ -120,8 +122,8 @@ def build_unlocked(platform='ipad'):
         report.write_text(json.dumps(evidence, indent=2) + '\n')
         if not evidence['reference_unchanged']:
             raise ValueError('Reference changed during build; investigate before continuing')
-    print('Private APK + OBB ready under artifacts/android/build-game; streaming data under artifacts/android/game-data/external.'
-          if platform == 'android' else 'Unsigned build ready. Device signing/deployment is a separate explicit step.')
+    print('Disco on the Go: artifacts/android/build-game/disco-on-the-go.apk + OBB; streaming data under artifacts/android/game-data/external. Install with make install PLATFORM=android.'
+          if platform == 'android' else 'Disco on the Go unsigned app ready. Sign and install with make install.')
 
 
 def build(platform='ipad'):

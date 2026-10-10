@@ -2,11 +2,13 @@
 from pathlib import PurePosixPath
 import re
 
-ROOT_FILES = {'.gitattributes', '.gitignore', 'AGENTS.md', 'LICENSE', 'Makefile', 'Package.swift', 'README.md', 'requirements-scenes.lock'}
+ROOT_FILES = {'.gitattributes', '.gitignore', 'AGENTS.md', 'LICENSE', 'Makefile', 'README.md', 'requirements.lock'}
+# Original source files from earlier reachable commits remain auditable.
+ROOT_FILES.update({'Package.swift','requirements-scenes.lock'})
 SUFFIXES = {
     'tools': {'.py', '.java'}, 'runtime': {'.swift', '.cs', '.h', '.mm', '.cpp', '.S'},
     'tests': {'.py'}, 'docs': {'.md'}, 'analysis': {'.md'},
-    'apps': {'.swift', '.plist', '.pbxproj', '.xcscheme', '.java', '.xml'}, '.github': {'.yml', '.yaml', '.md'},
+    'apps': {'.swift', '.mm', '.plist', '.pbxproj', '.xcscheme', '.java', '.xml'}, '.github': {'.yml', '.yaml', '.md'},
 }
 PATTERNS = {
     'private key': re.compile(r'-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----'),

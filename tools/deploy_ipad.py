@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Development-sign, install, and launch a diagnostic on a configured iPad."""
+"""Development-sign, install, and launch Disco on the Go on a configured iPad."""
 
 import argparse
 import hashlib
@@ -26,9 +26,8 @@ def run(output, arguments, log_name):
         raise ValueError(f"Command failed ({result.returncode}); inspect {output.relative_to(ROOT)}/{log_name}")
 
 
-def deploy(config_path, unity=False, runtime=False, engine=False, mip_limit=None, lazy_scenes=False):
-    if lazy_scenes and not engine:
-        raise ValueError('Lazy scenes require the original-runtime engine experiment')
+def deploy(config_path, mip_limit=0, lazy_scenes=True):
+    engine=True
     if mip_limit is not None and (not engine or mip_limit not in range(4)):
         raise ValueError('Texture mip limit requires the engine experiment and a value from 0 through 3')
     config_path = config_path.resolve()
@@ -40,7 +39,7 @@ def deploy(config_path, unity=False, runtime=False, engine=False, mip_limit=None
         raise ValueError("Expected a 10-character Apple development team ID")
     if not isinstance(device, str) or not device or device.startswith("-"):
         raise ValueError("Expected a paired device identifier")
-    output = ROOT / "artifacts/deployment-engine" if engine else ROOT / "artifacts/runtime-probe/deployment" if runtime else ROOT / "artifacts/deployment-unity" if unity else OUTPUT
+    output = ROOT / "artifacts/deployment-engine"
     output.mkdir(parents=True, exist_ok=True)
     run(output, ["xcrun", "devicectl", "device", "info", "details", "--device", device,
          "--timeout", "45", "--json-output", str(output / "device.json")], "device.log")
@@ -48,8 +47,8 @@ def deploy(config_path, unity=False, runtime=False, engine=False, mip_limit=None
     model = validate_ipad(result)
     if model not in ('iPad16,5', 'iPad16,6'):
         print('Untested iPad model: native BC texture support and sufficient process memory are required.', flush=True)
-    project = "artifacts/build/native-engine-ios/Unity-iPhone.xcodeproj" if engine else "artifacts/build/unity-ios/Unity-iPhone.xcodeproj" if unity else "apps/ipad/DiscoPort.xcodeproj"
-    derived = "artifacts/build/signed-engine" if engine else "artifacts/build/native-runtime" if runtime else "artifacts/build/signed-unity" if unity else "artifacts/build/signed-ipad"
+    project = "artifacts/build/native-engine-ios/Unity-iPhone.xcodeproj"
+    derived = "artifacts/build/signed-engine"
     persistent = False
     if engine:
         info_path = ROOT / 'artifacts/build/native-engine-ios/Info.plist'
@@ -60,30 +59,20 @@ def deploy(config_path, unity=False, runtime=False, engine=False, mip_limit=None
             asset_root = ROOT / 'artifacts/build/native-engine-ios'
             actual = manifest_bytes(data_manifest(asset_root / 'Data'))
             if actual != (asset_root / 'device-assets.json').read_bytes() or hashlib.sha256(actual).hexdigest() != info['DiscoAssetManifestSHA256']:
-                raise ValueError('Staged assets changed; run tools/configure_engine_assets.py again')
-    if not (ROOT / project).exists():
-        raise ValueError("Missing engine project; run tools/prepare_engine_probe.py first" if engine else
-                         "Missing Xcode project; export the Unity diagnostic first" if unity else "Missing harness project")
-    bundle = "org.discoport.engineprobe" if engine else "org.discoport.runtimeprobe" if runtime else "org.discoport.unityprobe" if unity else "org.discoport.lab"
+                raise ValueError('Staged assets changed; run tools/configure_ipad.py again')
+    if not (ROOT / project).exists():raise ValueError("Build the game first with make port")
+    bundle = config.get('bundle_id', 'org.discoport.engineprobe')
     if engine:
         bundle = config.get('bundle_id', bundle)
         project_file = ROOT / project / 'project.pbxproj'
         settings = plistlib.loads(project_file.read_bytes())
         set_app_bundle_identifier(settings, bundle)
         project_file.write_bytes(plistlib.dumps(settings))
-    extra = []
-    if runtime:
-        prepared = ROOT / "artifacts/runtime-probe"
-        if not (prepared / "preparation.json").exists():
-            raise ValueError("Run tools/prepare_runtime_probe.py first")
-        extra = ["PRODUCT_BUNDLE_IDENTIFIER=org.discoport.runtimeprobe", "INFOPLIST_FILE=RuntimeProbe-Info.plist",
-                 "SWIFT_ACTIVE_COMPILATION_CONDITIONS=DEBUG DISCO_NATIVE_RUNTIME_PROBE", "DISCO_RUNTIME_PROBE=YES",
-                 "DISCO_RUNTIME_PROBE_ROOT=" + str(prepared), "ENABLE_USER_SCRIPT_SANDBOXING=NO"]
-    run(output, ["xcodebuild", "-project", project, "-scheme", "Unity-iPhone" if unity or engine else "DiscoPort",
+    run(output, ["xcodebuild", "-project", project, "-scheme", "Unity-iPhone",
          "-configuration", "Debug", "-destination", "generic/platform=iOS", "-derivedDataPath",
          derived, "DEVELOPMENT_TEAM=" + team, "CODE_SIGN_STYLE=Automatic", "SDK_STAT_CACHE_ENABLE=NO",
-         "-allowProvisioningUpdates", *extra, "build"], "build.log")
-    app = ROOT / derived / "Build/Products/Debug-iphoneos" / ("DiscoGeometryLab.app" if unity or engine else "DiscoPort.app")
+         "-allowProvisioningUpdates", "build"], "build.log")
+    app = ROOT / derived / "Build/Products/Debug-iphoneos" / "Disco on the Go.app"
     if plistlib.loads((app / 'Info.plist').read_bytes()).get('CFBundleIdentifier') != bundle:
         raise ValueError('Built app identifier differs from the selected deployment container')
     if persistent and (app / 'Data').exists():
@@ -112,24 +101,15 @@ def deploy(config_path, unity=False, runtime=False, engine=False, mip_limit=None
     run(output, launch_arguments(device, bundle, output / 'launch.json', mip_limit, lazy_scenes), 'launch.log')
     result = json.loads((output / "launch.json").read_text())["result"]
     validate_launch(result, mip_limit, lazy_scenes)
-    print("Original-runtime engine experiment installed and launched on the configured iPad. Retrieve its log to establish results." if engine else
-          "Native CPU probe installed and launched on the configured iPad. Retrieve its runtime log to establish results." if runtime else
-          "Unity geometry diagnostic installed and launched on the configured iPad. Rendering still needs runtime verification."
-          if unity else "Harness installed and launched on the configured iPad. Gesture testing still requires physical interaction.")
+    print("Disco on the Go installed and launched. Confirm gameplay on the iPad.")
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, default=ROOT / "artifacts/local-ipad.json")
-    mode = parser.add_mutually_exclusive_group()
-    mode.add_argument("--unity", action="store_true", help="Deploy the exported Unity geometry diagnostic")
-    mode.add_argument("--runtime", action="store_true", help="Deploy the derived native CPU probe")
-    mode.add_argument("--engine", action="store_true", help="Deploy the original-runtime Unity engine experiment")
-    parser.add_argument('--mip-limit', type=int, choices=range(4), help='Diagnostic engine texture mip limit (0 keeps full resolution)')
-    parser.add_argument('--lazy-scenes', action='store_true', help='Enable the experimental on-demand scene adapter')
     args = parser.parse_args()
     try:
-        deploy(args.config, args.unity, args.runtime, args.engine, args.mip_limit, args.lazy_scenes)
+        deploy(args.config)
     except (ValueError, OSError, KeyError) as error:
         parser.exit(1, f"Deployment failed: {error}\n")
 
