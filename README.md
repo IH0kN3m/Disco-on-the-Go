@@ -1,6 +1,6 @@
 # Disco on the Go
 
-Build and play Disco Elysium locally on iPad or Android from your own macOS `Disco.app`. This unofficial project includes tools and compatibility code; game files and the app icon come from your copy.
+Build and play Disco Elysium locally on iPad or Android from your own macOS `Disco.app` (GOG version). This unofficial project includes tools and compatibility code; game files and the app icon come from your copy.
 
 ## Requirements
 
